@@ -122,3 +122,16 @@ desktop.ini
 tmp/
 temp/
 *.tmp
+
+
+# ============================================================
+# Documents (force-add with `git add -f` if intentional)
+# ============================================================
+
+*.doc
+*.docx
+*.pdf
+*.ppt
+*.pptx
+*.odt
+*.rtf
