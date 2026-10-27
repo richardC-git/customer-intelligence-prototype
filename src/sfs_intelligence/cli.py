@@ -1,3 +1,6 @@
+from sfs_intelligence.workflows.prospect import run_prospect_profile
+
+
 def display_header(title: str) -> None:
     print()
     print("=" * 50)
@@ -26,14 +29,29 @@ def prospect_profiling_menu() -> None:
             case "1":
                 company_name = input("\nEnter company name: ").strip()
 
-                if not company_name:
-                    print("\nA company name is required.")
+                try:
+                    profile = run_prospect_profile(company_name)
+                except ValueError as error:
+                    print(f"\n{error}")
                     pause()
                     continue
 
-                print(f"\nGenerating prospect profile for: {company_name}")
-                # Future:
-                # run_prospect_profile(company_name)
+                display_header("Prospect Profile")
+                print(f"Company: {profile.company_name}")
+                print(f"Provider: {profile.provider}")
+                print(f"\nSummary: {profile.summary}")
+                print("\nPotential opportunities:")
+                for opportunity in profile.opportunities:
+                    print(f"- {opportunity.description} [{', '.join(opportunity.source_ids)}]")
+                if not profile.opportunities:
+                    print("- None assessed.")
+                if profile.sources:
+                    print("\nSources:")
+                    for source in profile.sources:
+                        print(f"[{source.id}] {source.title} {source.url or '(internal)'}")
+                print("\nLimitations:")
+                for limitation in profile.limitations:
+                    print(f"- {limitation}")
 
                 pause()
 
