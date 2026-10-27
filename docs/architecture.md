@@ -7,7 +7,7 @@ src/sfs_intelligence/
 ├── cli.py          # Menu-driven entry point (`sfs-intelligence`)
 ├── models/         # Validated, provider-independent output data
 ├── workflows/      # One entry function per feature; input validation, no I/O
-├── research/       # Web search: SearchProvider interface + Brave adapter
+├── research/       # Web search: SearchProvider interface, Brave adapter, search categories
 ├── llm/            # (planned) language model adapters
 ├── ingestion/      # (planned) CRM, product, and list imports
 ├── matching/       # (planned) prospect-to-customer/product matching
@@ -50,6 +50,16 @@ To add a search service, implement `SearchProvider` in `research/` (return
 results as public `Source` objects) and register it in
 `search_provider_from_env()`.
 
+### Search categories
+
+`research/search_categories.toml` defines the information categories searched
+for each prospect (one query per category) and how many results each returns.
+`{company}` in a query is replaced with the quoted company name. Edit this file
+to add categories or restrict a category to approved sites with `site:`; keep
+to operators shared by major search engines (quotes, `OR`, `site:`) so queries
+stay provider-independent. Results are tagged with their category label and
+deduplicated by URL.
+
 ## Placeholder providers
 
 Until a real provider exists, each feature ships an offline placeholder that
@@ -57,8 +67,8 @@ returns an explicitly labelled result with no invented facts. This keeps the
 workflow runnable and testable end to end without network access or data.
 
 Prospect Profiling currently uses `SearchProspectProvider` when search is
-configured: it attaches web search results as sources but performs no
-analysis. The CLI falls back to the offline placeholder if search is not
+configured: it runs the category searches and attaches the results as sources
+but performs no analysis. The CLI falls back to the offline placeholder if search is not
 configured. An LLM-backed provider will replace it by analyzing the same
 sources and citing them in findings and opportunities.
 
