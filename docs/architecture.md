@@ -12,7 +12,8 @@ src/sfs_intelligence/
 ├── ingestion/      # (planned) CRM, product, and list imports
 ├── matching/       # (planned) prospect-to-customer/product matching
 ├── analysis/       # (planned) monitoring and change detection
-└── reports/        # (planned) report output
+├── reports/        # (planned) report output
+└── storage/        # Persistence behind interfaces (DuckDB page cache)
 ```
 
 ## Feature pattern
@@ -59,6 +60,25 @@ to add categories or restrict a category to approved sites with `site:`; keep
 to operators shared by major search engines (quotes, `OR`, `site:`) so queries
 stay provider-independent. Results are tagged with their category label and
 deduplicated by URL.
+
+## Storage
+
+Data is stored with DuckDB, behind interfaces (e.g. `PageStore`) so a backend
+can be swapped without changing features. Public and private data are kept in
+separate database files:
+
+| Store | Default path | Contents |
+| --- | --- | --- |
+| Page cache | `data/cache.duckdb` (`CACHE_DB_PATH`) | Fetched page text, keyed by URL. Safe to delete; it is rebuilt as pages are fetched again. |
+| Private data | `data/private/` (planned) | Imported CRM and product data. Never sent to external services without approval. |
+
+DuckDB allows only one process to hold a database file open for writing, so
+stores open a connection per operation and close it immediately. Avoid holding
+connections open across user interactions.
+
+Each fetched page records its status (`ok`, `failed`, or `blocked` for pages
+deliberately skipped, such as those behind a login or CAPTCHA), the extracted
+text, and a SHA-256 hash of that text for detecting changes between fetches.
 
 ## Placeholder providers
 
