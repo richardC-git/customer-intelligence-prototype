@@ -3,10 +3,10 @@
 Prototype customer intelligence tool for SFS Group: prospect profiling, key
 account monitoring, and competitor monitoring. Built as a BCIT ISSP project.
 
-> **Status:** early prototype. Prospect Profiling runs end to end but returns a
-> clearly labelled placeholder; no research, CRM, or product data is used yet.
-> Key Account Monitoring, Competitor Monitoring, and Data Management are menu
-> stubs.
+> **Status:** early prototype. Prospect Profiling retrieves web search results
+> for a company and lists them as cited sources, but does not yet analyze them;
+> no CRM or product data is used. Key Account Monitoring, Competitor
+> Monitoring, and Data Management are menu stubs.
 
 ## Requirements
 
