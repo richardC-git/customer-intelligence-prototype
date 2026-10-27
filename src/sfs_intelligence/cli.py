@@ -45,8 +45,12 @@ def prospect_profiling_menu() -> None:
             case "1":
                 company_name = input("\nEnter company name: ").strip()
 
+                provider = select_prospect_provider()
+                if provider is not None and company_name:
+                    print("\nSearching the web...")
+
                 try:
-                    profile = run_prospect_profile(company_name, select_prospect_provider())
+                    profile = run_prospect_profile(company_name, provider)
                 except (ValueError, SearchError) as error:
                     print(f"\n{error}")
                     pause()
@@ -63,7 +67,11 @@ def prospect_profiling_menu() -> None:
                     print("- None assessed.")
                 if profile.sources:
                     print("\nSources:")
+                    category = None
                     for source in profile.sources:
+                        if source.category and source.category != category:
+                            category = source.category
+                            print(f"\n  {category}")
                         print(f"[{source.id}] {source.title} {source.url or '(internal)'}")
                         if source.snippet:
                             print(f"     {source.snippet}")

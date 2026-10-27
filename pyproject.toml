@@ -16,6 +16,9 @@ dev = [
 [project.scripts]
 sfs-intelligence = "sfs_intelligence.cli:main"
 
+[tool.setuptools.package-data]
+sfs_intelligence = ["research/*.toml"]
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"

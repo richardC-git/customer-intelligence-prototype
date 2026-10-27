@@ -1,0 +1,33 @@
+# Search categories for prospect profiling.
+#
+# Each category runs one web search. {company} is replaced with the company
+# name in double quotes (exact-phrase match). Use operators that major search
+# engines share (quotes, OR, site:) so queries work with any search provider.
+# To limit a category to approved sites, add e.g. (site:example.com OR site:example.org).
+
+results_per_category = 5
+
+[[categories]]
+id = "news"
+label = "News & press releases"
+query = "{company} press release OR announces OR news"
+
+[[categories]]
+id = "leadership"
+label = "Leadership changes"
+query = "{company} appoints OR appointed OR CEO OR president OR \"vice president\""
+
+[[categories]]
+id = "hiring"
+label = "Hiring & workforce"
+query = "{company} hiring OR careers OR jobs OR expansion"
+
+[[categories]]
+id = "patents"
+label = "Patents & trademarks"
+query = "{company} patent OR trademark"
+
+[[categories]]
+id = "website"
+label = "Company website"
+query = "{company} official site"

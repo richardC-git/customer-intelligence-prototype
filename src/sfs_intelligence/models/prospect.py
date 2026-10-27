@@ -31,6 +31,7 @@ class Source(_FrozenModel):
     kind: SourceKind
     url: HttpUrl | None = None
     snippet: str | None = None
+    category: str | None = None
     retrieved_at: datetime | None = None
 
     @model_validator(mode="after")
