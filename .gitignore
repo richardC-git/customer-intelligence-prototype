@@ -71,6 +71,8 @@ data/exports/
 *.db
 *.sqlite
 *.sqlite3
+*.duckdb
+*.duckdb.wal
 
 
 # ============================================================
