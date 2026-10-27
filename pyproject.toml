@@ -1,7 +1,7 @@
 [project]
 name = "sfs-customer-intelligence"
 version = "0.1.0"
-description = "BCIT ISSP prototype customer intelligence system for SFS Group"
+description = "Prototype customer intelligence tool for SFS Group: prospect profiling, key account monitoring, and competitor monitoring (BCIT ISSP)"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.12,<3",

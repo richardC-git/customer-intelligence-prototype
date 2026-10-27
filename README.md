@@ -1,6 +1,7 @@
 # SFS Customer Intelligence Prototype
 
-BCIT ISSP prototype customer intelligence system for SFS Group.
+Prototype customer intelligence tool for SFS Group: prospect profiling, key
+account monitoring, and competitor monitoring. Built as a BCIT ISSP project.
 
 > **Status:** early prototype. Prospect Profiling runs end to end but returns a
 > clearly labelled placeholder; no research, CRM, or product data is used yet.
