@@ -3,7 +3,16 @@ name = "sfs-customer-intelligence"
 version = "0.1.0"
 description = "BCIT ISSP prototype customer intelligence system for SFS Group"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.12,<3",
+]
+
+[project.scripts]
+sfs-intelligence = "sfs_intelligence.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
