@@ -1,6 +1,11 @@
 from dotenv import load_dotenv
 
-from sfs_intelligence.workflows.prospect import run_prospect_profile
+from sfs_intelligence.research.search import SearchError, search_provider_from_env
+from sfs_intelligence.workflows.prospect import (
+    ProspectProvider,
+    SearchProspectProvider,
+    run_prospect_profile,
+)
 
 
 def display_header(title: str) -> None:
@@ -17,6 +22,15 @@ def pause() -> None:
 
 # Prospect Profiling
 
+def select_prospect_provider() -> ProspectProvider | None:
+    """Use web search when configured; otherwise fall back to the offline placeholder."""
+    try:
+        return SearchProspectProvider(search_provider_from_env())
+    except SearchError as error:
+        print(f"\nWeb search unavailable ({error}) Using offline placeholder.")
+        return None
+
+
 def prospect_profiling_menu() -> None:
     while True:
         display_header("Prospect Profiling")
@@ -32,8 +46,8 @@ def prospect_profiling_menu() -> None:
                 company_name = input("\nEnter company name: ").strip()
 
                 try:
-                    profile = run_prospect_profile(company_name)
-                except ValueError as error:
+                    profile = run_prospect_profile(company_name, select_prospect_provider())
+                except (ValueError, SearchError) as error:
                     print(f"\n{error}")
                     pause()
                     continue
@@ -51,6 +65,8 @@ def prospect_profiling_menu() -> None:
                     print("\nSources:")
                     for source in profile.sources:
                         print(f"[{source.id}] {source.title} {source.url or '(internal)'}")
+                        if source.snippet:
+                            print(f"     {source.snippet}")
                 print("\nLimitations:")
                 for limitation in profile.limitations:
                     print(f"- {limitation}")
