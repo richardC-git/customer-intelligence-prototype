@@ -56,6 +56,12 @@ Until a real provider exists, each feature ships an offline placeholder that
 returns an explicitly labelled result with no invented facts. This keeps the
 workflow runnable and testable end to end without network access or data.
 
+Prospect Profiling currently uses `SearchProspectProvider` when search is
+configured: it attaches web search results as sources but performs no
+analysis. The CLI falls back to the offline placeholder if search is not
+configured. An LLM-backed provider will replace it by analyzing the same
+sources and citing them in findings and opportunities.
+
 ## Source citation rule
 
 Every claim in an output model must cite at least one source:
