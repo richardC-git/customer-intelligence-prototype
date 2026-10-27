@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 
+from sfs_intelligence.research.fetch import HttpPageFetcher, PageCollector
 from sfs_intelligence.research.search import SearchError, search_provider_from_env
+from sfs_intelligence.storage.pages import page_store_from_env
 from sfs_intelligence.workflows.prospect import (
     ProspectProvider,
     SearchProspectProvider,
@@ -25,10 +27,12 @@ def pause() -> None:
 def select_prospect_provider() -> ProspectProvider | None:
     """Use web search when configured; otherwise fall back to the offline placeholder."""
     try:
-        return SearchProspectProvider(search_provider_from_env())
+        search = search_provider_from_env()
     except SearchError as error:
         print(f"\nWeb search unavailable ({error}) Using offline placeholder.")
         return None
+    pages = PageCollector(HttpPageFetcher(), page_store_from_env())
+    return SearchProspectProvider(search, pages=pages)
 
 
 def prospect_profiling_menu() -> None:
@@ -47,7 +51,7 @@ def prospect_profiling_menu() -> None:
 
                 provider = select_prospect_provider()
                 if provider is not None and company_name:
-                    print("\nSearching the web...")
+                    print("\nSearching the web and reading result pages. This can take a minute...")
 
                 try:
                     profile = run_prospect_profile(company_name, provider)
@@ -75,6 +79,8 @@ def prospect_profiling_menu() -> None:
                         print(f"[{source.id}] {source.title} {source.url or '(internal)'}")
                         if source.snippet:
                             print(f"     {source.snippet}")
+                        if source.page_text:
+                            print(f"     (Page text: {len(source.page_text):,} characters)")
                 print("\nLimitations:")
                 for limitation in profile.limitations:
                     print(f"- {limitation}")

@@ -7,7 +7,7 @@ src/sfs_intelligence/
 ├── cli.py          # Menu-driven entry point (`sfs-intelligence`)
 ├── models/         # Validated, provider-independent output data
 ├── workflows/      # One entry function per feature; input validation, no I/O
-├── research/       # Web search: SearchProvider interface, Brave adapter, search categories
+├── research/       # Web search (SearchProvider, Brave, categories) and page fetching
 ├── llm/            # (planned) language model adapters
 ├── ingestion/      # (planned) CRM, product, and list imports
 ├── matching/       # (planned) prospect-to-customer/product matching
@@ -60,6 +60,24 @@ to add categories or restrict a category to approved sites with `site:`; keep
 to operators shared by major search engines (quotes, `OR`, `site:`) so queries
 stay provider-independent. Results are tagged with their category label and
 deduplicated by URL.
+
+## Page fetching
+
+After the category searches, `research/fetch.py` fetches each result page and
+extracts its main text with trafilatura, so later analysis can read whole
+pages rather than search snippets. `PageCollector` reuses cached pages fetched
+within the last 7 days (failed fetches are retried), fetches different sites in
+parallel but one page at a time per site, and saves results to the page cache.
+
+To stay within the project's scope, the fetcher:
+
+- identifies itself with an honest user agent and respects `robots.txt`;
+- records pages behind logins or access controls (HTTP 401/402/403/407) and
+  bot checks (CAPTCHAs) as `blocked` and does not work around them;
+- fetches HTML only (no PDFs yet), with a timeout and a size limit.
+
+Sources without page text keep their search snippet, and the profile lists
+them under its limitations.
 
 ## Storage
 
