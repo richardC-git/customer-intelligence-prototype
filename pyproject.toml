@@ -5,6 +5,7 @@ description = "Prototype customer intelligence tool for SFS Group: prospect prof
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.12,<3",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
