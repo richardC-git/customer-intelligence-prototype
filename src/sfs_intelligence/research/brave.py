@@ -3,6 +3,7 @@
 import html
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -22,11 +23,14 @@ _TAG = re.compile(r"<[^>]+>")
 class BraveSearchClient:
     """SearchProvider backed by the Brave Search web API."""
 
-    def __init__(self, api_key: str, timeout: float = 10.0) -> None:
+    def __init__(self, api_key: str, timeout: float = 10.0, min_interval: float = 1.0) -> None:
+        """``min_interval`` spaces requests out; Brave's free plan allows ~1 per second."""
         if not api_key.strip():
             raise SearchError("A Brave Search API key is required.")
         self._api_key = api_key.strip()
         self._timeout = timeout
+        self._min_interval = min_interval
+        self._last_request: float | None = None
 
     def search(self, query: str, count: int = 10) -> tuple[Source, ...]:
         """Return up to ``count`` web results as public sources with ids W1, W2, ..."""
@@ -41,6 +45,7 @@ class BraveSearchClient:
             f"{API_URL}?{params}",
             headers={"Accept": "application/json", "X-Subscription-Token": self._api_key},
         )
+        self._wait_for_rate_limit()
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
                 payload = json.load(response)
@@ -52,6 +57,13 @@ class BraveSearchClient:
             raise SearchError("Brave Search returned a response that is not JSON.") from None
 
         return parse_results(payload, retrieved_at=datetime.now(UTC))
+
+    def _wait_for_rate_limit(self) -> None:
+        if self._last_request is not None:
+            remaining = self._min_interval - (time.monotonic() - self._last_request)
+            if remaining > 0:
+                time.sleep(remaining)
+        self._last_request = time.monotonic()
 
 
 def parse_results(payload: dict, retrieved_at: datetime) -> tuple[Source, ...]:

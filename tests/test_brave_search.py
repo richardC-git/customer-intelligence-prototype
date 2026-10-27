@@ -83,3 +83,21 @@ def test_search_rejects_bad_input(query, count):
     with pytest.raises(ValueError):
         BraveSearchClient("test-key").search(query, count=count)
 
+
+
+def test_search_waits_between_requests(monkeypatch):
+    clock = iter([100.0, 100.25, 101.0])
+    sleeps = []
+    monkeypatch.setattr(brave.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(brave.time, "sleep", sleeps.append)
+    monkeypatch.setattr(
+        brave.urllib.request,
+        "urlopen",
+        lambda request, timeout: FakeResponse(json.dumps(PAYLOAD).encode()),
+    )
+
+    client = BraveSearchClient("test-key", min_interval=1.0)
+    client.search("first")
+    client.search("second")
+
+    assert sleeps == [0.75]
