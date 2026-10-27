@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+
 from sfs_intelligence.workflows.prospect import run_prospect_profile
 
 
@@ -219,6 +221,7 @@ def main_menu() -> None:
 
 
 def main() -> None:
+    load_dotenv()
     main_menu()
 
 

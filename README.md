@@ -26,6 +26,13 @@ pip install -e ".[dev]"
 reinstalling. `[dev]` adds the test tools. Re-run the install only after
 changing `pyproject.toml`.
 
+Then copy `.env.example` to `.env` and fill in the provider settings and API
+keys. `.env` is ignored by git; never commit it.
+
+```bash
+cp .env.example .env
+```
+
 ## Launching
 
 With the virtual environment active:
