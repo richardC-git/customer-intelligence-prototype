@@ -18,11 +18,12 @@ From the repository root, create a virtual environment and install the project:
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 `-e` installs in editable mode, so code changes take effect without
-reinstalling. Re-run `pip install -e .` only after changing `pyproject.toml`.
+reinstalling. `[dev]` adds the test tools. Re-run the install only after
+changing `pyproject.toml`.
 
 ## Launching
 
@@ -44,7 +45,6 @@ package imports itself by name.
 ## Running tests
 
 ```bash
-pip install pytest
 pytest
 ```
 
