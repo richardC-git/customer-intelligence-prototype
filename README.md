@@ -48,6 +48,10 @@ package imports itself by name.
 pytest
 ```
 
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md).
+
 ## Data
 
 Do not commit confidential, proprietary, or SFS-provided production/sample data
