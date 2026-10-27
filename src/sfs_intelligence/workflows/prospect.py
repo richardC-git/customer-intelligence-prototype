@@ -2,8 +2,9 @@
 
 from typing import Protocol
 
-from sfs_intelligence.models.prospect import ProspectProfile
-from sfs_intelligence.research.search import SearchProvider
+from sfs_intelligence.models.prospect import ProspectProfile, Source
+from sfs_intelligence.research.categories import SearchCategoryConfig, load_search_categories
+from sfs_intelligence.research.search import SearchError, SearchProvider
 
 
 class ProspectProvider(Protocol):
@@ -31,30 +32,59 @@ class PlaceholderProspectProvider:
 
 
 class SearchProspectProvider:
-    """Attach web search results as sources; analysis is left to a future LLM provider."""
+    """Run one web search per category and attach the results as sources.
 
-    def __init__(self, search: SearchProvider, result_count: int = 10) -> None:
+    Analysis is left to a future LLM provider.
+    """
+
+    def __init__(self, search: SearchProvider, config: SearchCategoryConfig | None = None) -> None:
         self._search = search
-        self._result_count = result_count
+        self._config = config or load_search_categories()
 
     def generate_profile(self, company_name: str) -> ProspectProfile:
-        sources = self._search.search(company_name, count=self._result_count)
+        sources: list[Source] = []
+        seen_urls: set[str] = set()
+        failures: list[str] = []
+
+        for category in self._config.categories:
+            try:
+                results = self._search.search(
+                    category.build_query(company_name), count=self._config.results_per_category
+                )
+            except SearchError as error:
+                failures.append(f"{category.label}: {error}")
+                continue
+            for result in results:
+                if str(result.url) in seen_urls:
+                    continue
+                seen_urls.add(str(result.url))
+                sources.append(
+                    result.model_copy(update={"id": f"W{len(sources) + 1}", "category": category.label})
+                )
+
+        if len(failures) == len(self._config.categories):
+            raise SearchError("All searches failed. " + " ".join(failures))
+
+        searched = len(self._config.categories) - len(failures)
         summary = (
-            f"Found {len(sources)} web results for {company_name}. "
-            "They have not been analyzed."
+            f"Found {len(sources)} web results for {company_name} across {searched} "
+            "search categories. They have not been analyzed."
             if sources
             else f"No web results were found for {company_name}."
         )
+        limitations = [
+            "Search results only - no analysis or summarization has been performed.",
+            "Results may refer to a different company with a similar name.",
+            "No CRM or product data was consulted.",
+            "SFS product fit and sales opportunities have not been assessed.",
+        ]
+        limitations += [f"Search failed for {failure}" for failure in failures]
+
         return ProspectProfile(
             company_name=company_name,
             summary=summary,
-            sources=sources,
-            limitations=(
-                "Search results only - no analysis or summarization has been performed.",
-                "Results may refer to a different company with a similar name.",
-                "No CRM or product data was consulted.",
-                "SFS product fit and sales opportunities have not been assessed.",
-            ),
+            sources=tuple(sources),
+            limitations=tuple(limitations),
             provider=f"Web search ({type(self._search).__name__})",
         )
 
