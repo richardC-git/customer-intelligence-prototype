@@ -83,3 +83,39 @@ def test_no_results_produces_valid_profile():
     profile = run_prospect_profile("Example Co", SearchProspectProvider(FakeSearch({}), CONFIG))
     assert profile.sources == ()
     assert "No web results" in profile.summary
+
+
+class FakeCollector:
+    def __init__(self, pages):
+        self.pages = pages
+        self.requested = []
+
+    def collect(self, urls):
+        self.requested = list(urls)
+        return self.pages
+
+
+def test_page_text_attached_and_missing_pages_listed():
+    from datetime import UTC, datetime
+
+    from sfs_intelligence.models.page import FetchedPage, FetchStatus
+
+    now = datetime.now(UTC)
+    search = FakeSearch({
+        '"Example Co" news': (source("W1", "https://a.com/"), source("W2", "https://b.com/")),
+    })
+    collector = FakeCollector({
+        "https://a.com/": FetchedPage(
+            url="https://a.com/", status=FetchStatus.OK, fetched_at=now, text="Full article."
+        ),
+        "https://b.com/": FetchedPage(
+            url="https://b.com/", status=FetchStatus.BLOCKED, fetched_at=now, error="robots"
+        ),
+    })
+    provider = SearchProspectProvider(search, CONFIG, pages=collector)
+
+    profile = run_prospect_profile("Example Co", provider)
+
+    assert collector.requested == ["https://a.com/", "https://b.com/"]
+    assert [s.page_text for s in profile.sources] == ["Full article.", None]
+    assert any("W2" in item and "snippets only" in item for item in profile.limitations)

@@ -32,6 +32,7 @@ class Source(_FrozenModel):
     url: HttpUrl | None = None
     snippet: str | None = None
     category: str | None = None
+    page_text: str | None = None
     retrieved_at: datetime | None = None
 
     @model_validator(mode="after")
