@@ -7,6 +7,13 @@ dependencies = [
     "pydantic>=2.12,<3",
 ]
 
+[project.scripts]
+sfs-intelligence = "sfs_intelligence.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
