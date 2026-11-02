@@ -7,6 +7,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 DEFAULT_CATEGORIES_PATH = Path(__file__).with_name("search_categories.toml")
+COMPETITOR_CATEGORIES_PATH = Path(__file__).with_name("competitor_categories.toml")
 COMPANY_PLACEHOLDER = "{company}"
 
 NonEmptyStr = Annotated[str, Field(min_length=1)]

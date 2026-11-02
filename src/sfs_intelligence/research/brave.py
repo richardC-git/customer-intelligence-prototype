@@ -7,7 +7,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from pydantic import ValidationError
 
@@ -79,11 +79,20 @@ def parse_results(payload: dict, retrieved_at: datetime) -> tuple[Source, ...]:
                 url=result.get("url"),
                 snippet=_clean(result.get("description", "")) or None,
                 retrieved_at=retrieved_at,
+                published=_published(result.get("page_age")),
             )
         except ValidationError:
             continue
         sources.append(source)
     return tuple(sources)
+
+
+def _published(page_age: object) -> date | None:
+    """Return the page's date. Many results have none, which must stay unknown."""
+    try:
+        return date.fromisoformat(str(page_age)[:10])
+    except ValueError:
+        return None
 
 
 def _clean(text: str) -> str:

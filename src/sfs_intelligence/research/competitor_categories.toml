@@ -1,0 +1,28 @@
+# Search categories for competitor monitoring. Same format as search_categories.toml.
+
+results_per_category = 4
+
+[[categories]]
+id = "pricing"
+label = "Pricing"
+query = "{company} price increase OR pricing OR \"price list\""
+
+[[categories]]
+id = "relationships"
+label = "Customers, suppliers & partners"
+query = "{company} partner OR partnership OR supplier OR distributor OR customer"
+
+[[categories]]
+id = "news"
+label = "News & announcements"
+query = "{company} announces OR press release OR news"
+
+[[categories]]
+id = "products"
+label = "Products"
+query = "{company} new product OR launch OR fastener"
+
+[[categories]]
+id = "corporate"
+label = "Acquisitions & leadership"
+query = "{company} acquisition OR acquires OR merger OR appoints"
