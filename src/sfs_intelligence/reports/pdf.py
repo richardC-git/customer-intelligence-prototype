@@ -2,10 +2,11 @@
 
 The page has a header with the verdict, two columns (the sales story on the
 left, warnings and quick facts on the right), and a footer listing only the
-sources the page cites. If the content does not fit, the text shrinks a little,
-then the lowest-ranked items are cut and each cut is noted on the page, so the
-brief never runs to a second page. The Markdown report saved with it keeps
-everything.
+sources the page cites. Text is never shortened just to look tidy. If the
+content does not fit, the text shrinks a little, then the lowest-ranked items are
+cut whole, and each cut is noted on the page. Only if that is not enough is the
+longest remaining text shortened, with a note saying so. The brief never runs to
+a second page, and the Markdown report saved with it keeps everything.
 
 Noto Sans is bundled so names print correctly in any Latin, Greek, or Cyrillic
 script, with Noto Sans JP as the fallback for Japanese and Chinese characters.
@@ -35,9 +36,11 @@ FONT_SIZES = (9.0, 8.5, 8.0)
 SMALL = 7.0
 LINE_SPACING = 1.3
 BULLET_INDENT = 3.0
-MAX_ITEM_CHARS = 320
-MAX_SUMMARY_CHARS = 900
 MAX_LIMITATIONS = 3
+# Shortening is a last resort: each step cuts the longest text by this share.
+SHORTEN_STEP = 0.85
+MIN_SHORTENED_CHARS = 120
+SHORTENED_NOTE = " (shortened; full text in the Markdown report)"
 SOURCE_ID_WIDTH = 7.0
 
 INK = (27, 37, 48)
@@ -66,6 +69,10 @@ class Block:
     # Summaries, warnings, and CRM facts are never cut.
     trimmable: bool = True
     hidden: int = 0
+    full: list[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.full = list(self.items)
 
 
 @dataclass
@@ -107,13 +114,14 @@ def plan_page(pdf: FPDF, document: ReportDocument) -> PagePlan:
         plan = _initial_plan(document, size)
         if _overflowing(pdf, document, plan) is None:
             return plan
-    while (column := _overflowing(pdf, document, plan)) is not None and _trim(column):
-        pass
+    while (column := _overflowing(pdf, document, plan)) is not None:
+        if not (_trim(column) or _shorten_longest(column)):
+            break
     return plan
 
 
 def _initial_plan(document: ReportDocument, size: float) -> PagePlan:
-    main = [Block("Summary", [_shorten(document.summary, MAX_SUMMARY_CHARS)], False, False)]
+    main = [Block("Summary", [_clean(document.summary)], bullets=False, trimmable=False)]
     side = []
     if document.warnings:
         side.append(Block("Key warnings", _items(document.warnings), trimmable=False))
@@ -124,12 +132,12 @@ def _initial_plan(document: ReportDocument, size: float) -> PagePlan:
             (side if section.side else main).append(Block(section.heading, _items(section.items)))
     # The footer always carries the AI notice, so a limitation repeating it is skipped.
     limitations = [item for item in document.limitations if not item.startswith("AI-generated")]
-    limitations = [_shorten(item, 200) for item in limitations[:MAX_LIMITATIONS]]
+    limitations = [_clean(item) for item in limitations[:MAX_LIMITATIONS]]
     return PagePlan(size, main, side, limitations)
 
 
 def _items(items: tuple[str, ...]) -> list[str]:
-    return [_shorten(item, MAX_ITEM_CHARS) for item in items]
+    return [_clean(item) for item in items]
 
 
 def _overflowing(pdf: FPDF, document: ReportDocument, plan: PagePlan) -> list[Block] | None:
@@ -154,7 +162,21 @@ def _trim(column: list[Block]) -> bool:
     # Ties go to the later, lower-ranked section.
     block = max(reversed(candidates), key=lambda block: len(block.items))
     block.items.pop()
+    block.full.pop()
     block.hidden += 1
+    return True
+
+
+def _shorten_longest(column: list[Block]) -> bool:
+    """Shorten the longest text in the column, saying so in the text itself."""
+    entries = [(len(text), block, index) for block in column for index, text in enumerate(block.items)]
+    if not entries:
+        return False
+    length, block, index = max(entries, key=lambda entry: entry[0])
+    limit = int(length * SHORTEN_STEP)
+    if limit < MIN_SHORTENED_CHARS:
+        return False
+    block.items[index] = _shorten(block.full[index], limit)
     return True
 
 
@@ -220,7 +242,7 @@ def _header(pdf: FPDF, document: ReportDocument, size: float, draw: bool) -> flo
         pdf.set_xy(MARGIN, y)
         pdf.cell(badge_width, badge_height, label, align="C")
     reason_x = MARGIN + badge_width + 4
-    reason = _shorten(document.reason, MAX_ITEM_CHARS)
+    reason = _clean(document.reason)
     reason_height = _text(pdf, reason_x, y + 1, pdf.w - MARGIN - reason_x, reason, size + 0.5, "", INK, draw)
     y += max(badge_height, reason_height + 1) + 3
     if draw:
@@ -315,15 +337,12 @@ def _fit(pdf: FPDF, text: str, width: float) -> str:
 
 
 def _shorten(text: str, limit: int) -> str:
-    """Cap text at ``limit`` characters, keeping a trailing citation such as [W1, W2]."""
-    text = _clean(text)
-    if len(text) <= limit:
-        return text
+    """Cap text near ``limit`` characters with a note, keeping a trailing citation."""
     match = _TRAILING_CITATION.search(text)
     citation = match.group(0) if match else ""
     body = text[: len(text) - len(citation)]
-    body = body[: max(limit - len(citation) - 1, 0)].rsplit(" ", 1)[0]
-    return f"{body}…{citation}"
+    body = body[: max(limit - len(citation) - len(SHORTENED_NOTE), 0)].rsplit(" ", 1)[0]
+    return f"{body}…{SHORTENED_NOTE}{citation}"
 
 
 def _clean(text: str) -> str:

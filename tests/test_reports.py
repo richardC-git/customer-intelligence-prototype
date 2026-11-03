@@ -27,7 +27,7 @@ from sfs_intelligence.reports.document import (
     prospect_document,
 )
 from sfs_intelligence.reports.export import DEFAULT_REPORTS_DIR, export_report, to_markdown
-from sfs_intelligence.reports.pdf import new_pdf, plan_page
+from sfs_intelligence.reports.pdf import _shorten, new_pdf, plan_page
 from sfs_intelligence.workflows.prospect import LLMProspectProvider
 
 TODAY = date(2026, 11, 2)
@@ -455,11 +455,35 @@ def test_crm_record_and_similar_customers_go_in_the_side_column():
     assert plan.side[0].items == ["Potential: 300,000"]
 
 
-def test_long_items_keep_their_citation():
-    plan = plan_page(new_pdf(), document(developments=(finding("word " * 200),)))
-    developments = next(block for block in plan.main if block.heading == "Recent developments")
+def test_text_is_not_shortened_when_there_is_room():
+    text = "Acme supplies insulated metal wall panels to commercial builders. " * 8
+    plan = plan_page(new_pdf(), document(summary=text, developments=(finding(text),)))
 
-    assert developments.items[0].endswith("… [W1]")
+    assert all("…" not in item for block in plan.main for item in block.items)
+
+
+def test_shortening_is_a_last_resort_that_says_so_and_keeps_citations(tmp_path):
+    long = "Acme supplies insulated metal wall panels to commercial builders. " * 22
+    huge = document(
+        summary=long,
+        key_warnings=tuple(long for _ in range(4)),
+        developments=(finding(long),),
+    )
+
+    plan = plan_page(new_pdf(), huge)
+    shortened = [item for block in (*plan.main, *plan.side) for item in block.items if "…" in item]
+
+    assert shortened
+    assert all("full text in the Markdown report" in item for item in shortened)
+    pdf, _ = export_report(huge, "pdf", tmp_path)
+    assert page_count(pdf) == 1
+
+
+def test_shortened_text_keeps_its_citation():
+    text = _shorten("Acme opened a plant in Texas. " * 20 + "[W1, W2]", 200)
+
+    assert text.endswith("full text in the Markdown report) [W1, W2]")
+    assert len(text) <= 200
 
 
 @pytest.mark.parametrize("name", ["../../etc/evil", "A/B Roofing", "..", "/abs/path", "日本製鉄"])
