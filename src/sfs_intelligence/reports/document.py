@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from sfs_intelligence.models.competitor import CompetitorReport
+from sfs_intelligence.models.crm import CRM_RECORD_ID
 from sfs_intelligence.models.prospect import (
     Finding,
     ProspectProfile,
@@ -22,6 +23,8 @@ MAX_WARNINGS = 4
 STALE_AFTER = timedelta(days=730)
 
 NOT_ASSESSED = "Not assessed"
+INTERNAL_NOTICE = "SFS internal: contains CRM or field sales data. Do not share outside SFS."
+AI_NOTICE = "AI-generated. Check the cited sources before acting on it."
 _VERDICTS = {
     Recommendation.PURSUE: "Pursue",
     Recommendation.RESEARCH_FURTHER: "Research further",
@@ -34,6 +37,8 @@ _VERDICTS = {
 class Section:
     heading: str
     items: tuple[str, ...]
+    # Quick-reference sections go in the PDF's narrow column.
+    side: bool = False
 
 
 @dataclass(frozen=True)
@@ -50,6 +55,7 @@ class ReportDocument:
     sections: tuple[Section, ...]
     sources: tuple[Source, ...]
     limitations: tuple[str, ...]
+    crm_record: tuple[str, ...] = ()
 
     @property
     def headline(self) -> str:
@@ -64,9 +70,6 @@ def prospect_document(profile: ProspectProfile, today: date | None = None) -> Re
     today = today or date.today()
     reason = profile.recommendation_reason
     sections = (
-        Section("Recent developments", _cited(profile.developments)),
-        Section("Pricing signals", _cited(profile.pricing_signals)),
-        Section("Customers, suppliers & partners", _cited(profile.relationships)),
         Section(
             "Potential opportunities",
             tuple(
@@ -74,10 +77,14 @@ def prospect_document(profile: ProspectProfile, today: date | None = None) -> Re
                 for item in profile.opportunities
             ),
         ),
+        Section("Recent developments", _cited(profile.developments)),
         Section(
             "Most similar existing customers",
             tuple(f"{item.name}: {item.similarity_reason}" for item in profile.related_customers),
+            side=True,
         ),
+        Section("Pricing signals", _cited(profile.pricing_signals), side=True),
+        Section("Customers, suppliers & partners", _cited(profile.relationships), side=True),
     )
     return ReportDocument(
         title="Prospect Briefing",
@@ -92,6 +99,7 @@ def prospect_document(profile: ProspectProfile, today: date | None = None) -> Re
         sections=sections,
         sources=profile.sources,
         limitations=profile.limitations,
+        crm_record=_crm_record(profile.sources),
     )
 
 
@@ -99,10 +107,10 @@ def competitor_document(report: CompetitorReport, today: date | None = None) -> 
     today = today or date.today()
     takeaway = report.key_takeaway
     sections = (
-        Section("Recent developments", _cited(report.developments)),
-        Section("Pricing signals", _cited(report.pricing_signals)),
-        Section("Customers, suppliers & partners", _cited(report.relationships)),
         Section("What this means for SFS", _cited(report.implications)),
+        Section("Recent developments", _cited(report.developments)),
+        Section("Pricing signals", _cited(report.pricing_signals), side=True),
+        Section("Customers, suppliers & partners", _cited(report.relationships), side=True),
     )
     return ReportDocument(
         title="Competitor Briefing",
@@ -118,6 +126,15 @@ def competitor_document(report: CompetitorReport, today: date | None = None) -> 
         sources=report.sources,
         limitations=report.limitations,
     )
+
+
+def _crm_record(sources: Sequence[Source]) -> tuple[str, ...]:
+    """Return the matched company's CRM lines, without the name the title already shows."""
+    for source in sources:
+        if source.kind is SourceKind.INTERNAL and source.id == CRM_RECORD_ID and source.page_text:
+            lines = source.page_text.splitlines()
+            return tuple(line for line in lines if line and not line.startswith("Company:"))
+    return ()
 
 
 def _cite(finding: Finding) -> str:

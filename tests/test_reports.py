@@ -19,18 +19,15 @@ from sfs_intelligence.models.prospect import (
     SourceKind,
 )
 from sfs_intelligence.reports.document import (
+    INTERNAL_NOTICE,
     MAX_TOP_ACTIONS,
     MAX_WARNINGS,
     NOT_ASSESSED,
     competitor_document,
     prospect_document,
 )
-from sfs_intelligence.reports.export import (
-    DEFAULT_REPORTS_DIR,
-    INTERNAL_NOTICE,
-    export_report,
-    to_markdown,
-)
+from sfs_intelligence.reports.export import DEFAULT_REPORTS_DIR, export_report, to_markdown
+from sfs_intelligence.reports.pdf import _shorten, new_pdf, plan_page
 from sfs_intelligence.workflows.prospect import LLMProspectProvider
 
 TODAY = date(2026, 11, 2)
@@ -348,17 +345,23 @@ def test_empty_sections_are_left_out():
 # Files
 
 
+def page_count(path) -> int:
+    return len(re.findall(rb"/Type /Page\b(?!s)", path.read_bytes()))
+
+
 def test_exports_markdown(tmp_path):
-    path = export_report(document(), "md", tmp_path)
+    (path,) = export_report(document(), "md", tmp_path)
 
     assert path.suffix == ".md"
     assert "Verdict: Pursue" in path.read_text(encoding="utf-8")
 
 
-def test_exports_a_real_pdf(tmp_path):
-    path = export_report(document(), "pdf", tmp_path)
+def test_pdf_export_saves_the_full_markdown_report_with_it(tmp_path):
+    pdf, markdown = export_report(document(), "pdf", tmp_path)
 
-    assert path.read_bytes().startswith(b"%PDF")
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert markdown == pdf.with_suffix(".md")
+    assert "Verdict: Pursue" in markdown.read_text(encoding="utf-8")
 
 
 def test_pdf_handles_non_latin_text_long_urls_and_many_sources(tmp_path):
@@ -366,27 +369,126 @@ def test_pdf_handles_non_latin_text_long_urls_and_many_sources(tmp_path):
     sources = tuple(
         Source(
             id=f"W{i}",
-            title="日本製鉄 – Acme’s “news” ™ — roofing",
+            title="日本製鉄 – Acme’s “news” ™ — roofing " * 5,
             kind=SourceKind.PUBLIC,
             url=long_url,
         )
         for i in range(1, 80)
     )
+    developments = tuple(finding(f"Müller 日本製鉄 news {i}.", f"W{i}") for i in range(1, 11))
 
-    path = export_report(document(sources=sources, summary="Müller’s plant 日本"), "pdf", tmp_path)
+    pdf, _ = export_report(
+        document(sources=sources, summary="Müller’s plant 日本", developments=developments),
+        "pdf",
+        tmp_path,
+    )
 
-    assert path.stat().st_size > 1000
+    assert page_count(pdf) == 1
 
 
 def test_pdf_handles_an_empty_report(tmp_path):
     empty = profile(recommendation=None, recommendation_reason=None, sources=())
+    pdf, _ = export_report(prospect_document(empty, TODAY), "pdf", tmp_path)
 
-    assert export_report(prospect_document(empty, TODAY), "pdf", tmp_path).exists()
+    assert page_count(pdf) == 1
+
+
+# One-page layout
+
+
+LONG = "Acme announced a new roofing panel plant in Texas that will add two hundred jobs. " * 3
+
+
+def full_profile() -> ProspectProfile:
+    """A profile with every section at the most items a model may return."""
+    sources = tuple(web(f"W{i}") for i in range(1, 41))
+    return profile(
+        summary=LONG * 4,
+        key_warnings=tuple(f"Warning {i}: {LONG}" for i in range(4)),
+        developments=tuple(finding(LONG, f"W{i}") for i in range(1, 11)),
+        pricing_signals=tuple(finding(LONG, f"W{i}") for i in range(11, 17)),
+        relationships=tuple(finding(LONG, f"W{i}") for i in range(17, 25)),
+        opportunities=tuple(
+            Opportunity(description=LONG, rationale=LONG, source_ids=(f"W{i}",))
+            for i in range(25, 33)
+        ),
+        sources=(internal(), *sources),
+        limitations=tuple(f"Gap {i}." for i in range(5)),
+    )
+
+
+def test_a_full_profile_fits_on_one_page_and_says_what_was_cut(tmp_path):
+    full = prospect_document(full_profile(), TODAY)
+    plan = plan_page(new_pdf(), full)
+
+    assert plan.hidden > 0
+    assert all(block.items for block in (*plan.main, *plan.side))
+    pdf, _ = export_report(full, "pdf", tmp_path)
+    assert page_count(pdf) == 1
+
+
+def test_short_reports_keep_everything_at_full_size():
+    plan = plan_page(new_pdf(), document(developments=(finding(),)))
+
+    assert plan.hidden == 0
+    assert plan.size == 9.0
+
+
+def test_lowest_ranked_items_are_cut_first():
+    plan = plan_page(new_pdf(), prospect_document(full_profile(), TODAY))
+    opportunities = next(block for block in plan.main if block.heading == "Potential opportunities")
+
+    assert opportunities.items[0].endswith("[W25]")
+
+
+def test_only_sources_cited_on_the_page_are_listed():
+    sources = (web(), web("W2"), web("W3"))
+    plan = plan_page(new_pdf(), document(developments=(finding(source="W3"),), sources=sources))
+
+    assert [source.id for source in plan.sources] == ["W1", "W3"]
+
+
+def test_crm_record_and_similar_customers_go_in_the_side_column():
+    plan = plan_page(new_pdf(), document(sources=(web(), internal())))
+
+    assert [block.heading for block in plan.side] == ["SFS CRM"]
+    assert plan.side[0].items == ["Potential: 300,000"]
+
+
+def test_text_is_not_shortened_when_there_is_room():
+    text = "Acme supplies insulated metal wall panels to commercial builders. " * 8
+    plan = plan_page(new_pdf(), document(summary=text, developments=(finding(text),)))
+
+    assert all("…" not in item for block in plan.main for item in block.items)
+
+
+def test_shortening_is_a_last_resort_that_says_so_and_keeps_citations(tmp_path):
+    long = "Acme supplies insulated metal wall panels to commercial builders. " * 22
+    huge = document(
+        summary=long,
+        key_warnings=tuple(long for _ in range(4)),
+        developments=(finding(long),),
+    )
+
+    plan = plan_page(new_pdf(), huge)
+    shortened = [item for block in (*plan.main, *plan.side) for item in block.items if "…" in item]
+
+    assert shortened
+    assert all("full text in the Markdown report" in item for item in shortened)
+    pdf, _ = export_report(huge, "pdf", tmp_path)
+    assert page_count(pdf) == 1
+
+
+def test_shortened_text_keeps_its_citation():
+    text = _shorten("Acme opened a plant in Texas. " * 20 + "[W1, W2]", 200)
+
+    assert text.endswith("full text in the Markdown report) [W1, W2]")
+    assert len(text) <= 200
 
 
 @pytest.mark.parametrize("name", ["../../etc/evil", "A/B Roofing", "..", "/abs/path", "日本製鉄"])
 def test_file_names_stay_inside_the_directory(tmp_path, name):
-    path = export_report(document(company_name=name), "md", tmp_path)
+    (path,) = export_report(document(company_name=name), "md", tmp_path)
 
     assert path.resolve().parent == tmp_path.resolve()
 

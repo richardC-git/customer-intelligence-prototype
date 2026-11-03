@@ -30,6 +30,7 @@ from sfs_intelligence.workflows.competitor import (
     run_competitor_report,
 )
 from sfs_intelligence.workflows.prospect import (
+    CRM_NOT_IMPORTED,
     CrmProspectProvider,
     LLMProspectProvider,
     PlaceholderProspectProvider,
@@ -103,7 +104,8 @@ def offer_export(documents: Sequence[ReportDocument]) -> None:
         case _:
             return
     for document in documents:
-        print(f"Saved: {export_report(document, file_format)}")
+        for path in export_report(document, file_format):
+            print(f"Saved: {path}")
 
 
 def select_llm() -> GuardedLLM | None:
@@ -140,6 +142,8 @@ def prospect_profiling_menu() -> None:
     while True:
         display_header("Prospect Profiling")
 
+        if not private_store_from_env().counts()["crm_accounts"]:
+            print(f"Note: {CRM_NOT_IMPORTED}\n")
         print("1. Generate Prospect Profile")
         print("2. Back to Main Menu")
         print()

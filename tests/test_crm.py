@@ -22,6 +22,7 @@ from sfs_intelligence.models.crm import Competitor, CrmAccount
 from sfs_intelligence.models.prospect import ProspectProfile, Source, SourceKind
 from sfs_intelligence.storage.private import DuckDBPrivateStore, private_store_from_env
 from sfs_intelligence.workflows.prospect import (
+    CRM_NOT_IMPORTED,
     CrmProspectProvider,
     LLMProspectProvider,
     PlaceholderProspectProvider,
@@ -368,6 +369,15 @@ def test_unknown_company_says_so_and_adds_no_crm_data(loaded):
 
     assert profile.sources == ()
     assert any("Not found in the CRM" in item for item in profile.limitations)
+
+
+def test_empty_crm_says_it_was_not_imported_rather_than_not_found(store):
+    profile = CrmProspectProvider(FakeResearch(), store).generate_profile("Example Metal Roofing")
+
+    assert CRM_NOT_IMPORTED in profile.limitations
+    assert CRM_NOT_IMPORTED in profile.key_warnings
+    assert not any("Not found" in item for item in profile.limitations)
+    assert "No CRM or product data was consulted." not in profile.limitations
 
 
 def test_inexact_match_is_flagged_for_the_user(loaded):

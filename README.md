@@ -98,7 +98,8 @@ package imports itself by name.
 
 Each report opens with a briefing: a verdict, top actions, and key warnings. After a
 report, choose Markdown or PDF to save it to `data/private/reports/`. That folder is
-ignored by git because reports can contain CRM data.
+ignored by git because reports can contain CRM data. The PDF is a one-page brief;
+the full report is always saved next to it as Markdown.
 
 ## Running tests
 
