@@ -144,7 +144,7 @@ def review_report(document: ReportDocument) -> None:
     """Show the briefing, then the full report or a saved copy on request."""
     display_briefing(document)
     while True:
-        print("\n1. Full report   2. Save Markdown   3. Save PDF   4. Done")
+        print("\n1. Full report   2. Save full report   3. Save PDF brief   4. Done")
         match input("Selection: ").strip():
             case "1":
                 display_full_report(document)
@@ -173,11 +173,11 @@ def review_reports(documents: Sequence[ReportDocument], failures: dict[str, str]
     if not documents:
         return
     while True:
-        print("\nEnter a report number to open it, M to save all as Markdown,")
-        selection = input("P to save all as PDF, or press Enter when done: ").strip().lower()
+        print("\nEnter a report number to open it, F to save all full reports,")
+        selection = input("P to save all PDF briefs, or press Enter when done: ").strip().lower()
         if not selection:
             return
-        if selection == "m":
+        if selection == "f":
             save(documents, "md")
         elif selection == "p":
             save(documents, "pdf")
