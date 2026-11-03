@@ -180,11 +180,29 @@ The model chooses the verdict from a fixed list. The warning for old or undated
 pricing is calculated from source dates, so it does not depend on the model. Without
 AI analysis the verdict reads "Not assessed".
 
-`reports/export.py` saves Markdown or PDF to `data/private/reports/`, which git
-ignores, because reports can hold CRM data. Reports using internal data are marked
-as internal. Web text is escaped in Markdown so a page title cannot become a remote
-image or link. PDF uses a built-in font covering Latin characters, so other scripts,
-such as Japanese, appear as `?`; use Markdown for those.
+`reports/export.py` saves reports to `data/private/reports/`, which git ignores,
+because reports can hold CRM data. Reports using internal data are marked as
+internal. Web text is escaped in Markdown so a page title cannot become a remote
+image or link.
+
+The PDF (`reports/pdf.py`) is a one-page brief on US Letter paper, and the full
+Markdown report is always saved next to it:
+
+- Header: the verdict as a coloured badge, with its cited reason.
+- Left column: summary, opportunities (or implications for competitors), and
+  developments. Right column: key warnings, the CRM record, similar customers,
+  pricing signals, and relationships. Sections are placed by `Section.side`.
+- Footer: only the sources the page cites, as site, date, and title, plus the top
+  three limitations and the AI notice.
+
+The page is measured before it is drawn. If it does not fit, the text shrinks from
+9 pt to 8 pt, then the last item of the longest section is cut until it fits, and
+each section notes "+N more in the Markdown report". Summaries, warnings, and CRM
+facts are never cut, and long items keep their citations.
+
+Noto Sans (bundled in `reports/fonts/`, SIL Open Font License) covers Latin, Greek,
+and Cyrillic, with Noto Sans JP as the fallback for Japanese and Chinese characters.
+Only the characters used are embedded, so PDFs stay small.
 
 ## Language models
 
