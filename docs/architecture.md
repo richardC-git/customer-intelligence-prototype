@@ -36,6 +36,11 @@ Monitoring next) follows the same shape, using
 Real research or AI services are added as new provider classes. The CLI and
 models do not change when a provider is swapped.
 
+Long-running steps (each search, page reading, CRM matching, follow-up searches,
+analysis) call `progress.report()`. The CLI sets where those go with
+`progress.reporting_to()` and shows them on one rewritten line per company; with no
+callback set, as in tests, nothing is shown.
+
 ## Configuration
 
 Providers are chosen at runtime from environment variables, loaded from `.env`
