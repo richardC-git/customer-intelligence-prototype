@@ -24,7 +24,7 @@ copilot = [
 sfs-intelligence = "sfs_intelligence.cli:main"
 
 [tool.setuptools.package-data]
-sfs_intelligence = ["research/*.toml", "llm/prompts/*.md"]
+sfs_intelligence = ["research/*.toml", "llm/prompts/*.md", "reports/fonts/*"]
 
 [build-system]
 requires = ["setuptools>=61"]
