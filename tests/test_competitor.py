@@ -10,7 +10,7 @@ from sfs_intelligence.models.competitor import CompetitorAnalysis, CompetitorRep
 from sfs_intelligence.models.crm import Competitor
 from sfs_intelligence.models.prospect import Finding, Source, SourceKind
 from sfs_intelligence.research.categories import COMPETITOR_CATEGORIES_PATH, load_search_categories
-from sfs_intelligence.research.search import SearchError
+from sfs_intelligence.research.search import SearchError, SearchKind
 from sfs_intelligence.workflows.competitor import (
     LLMCompetitorProvider,
     SearchCompetitorProvider,
@@ -27,7 +27,7 @@ class FakeSearch:
         self.results = results
         self.fail = fail
 
-    def search(self, query, count=10):
+    def search(self, query, count=10, kind=SearchKind.WEB):
         self.queries.append(query)
         if self.fail:
             raise SearchError("down")
@@ -199,10 +199,10 @@ def test_all_searches_failing_raises():
 
 def test_partial_search_failure_is_disclosed():
     class Flaky(FakeSearch):
-        def search(self, query, count=10):
+        def search(self, query, count=10, kind=SearchKind.WEB):
             if "patent" in query or "acquisition" in query:
                 raise SearchError("down")
-            return super().search(query, count)
+            return super().search(query, count, kind)
 
     report = SearchCompetitorProvider(Flaky()).generate_report(COMPETITOR)
 

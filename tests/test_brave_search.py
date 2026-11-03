@@ -8,7 +8,7 @@ import pytest
 from sfs_intelligence.models.prospect import SourceKind
 from sfs_intelligence.research import brave
 from sfs_intelligence.research.brave import BraveSearchClient, parse_results
-from sfs_intelligence.research.search import SearchError
+from sfs_intelligence.research.search import SearchError, SearchKind
 
 RETRIEVED_AT = datetime(2026, 10, 27, tzinfo=UTC)
 
@@ -82,6 +82,52 @@ def test_search_sends_query_and_key(monkeypatch):
     assert "count=5" in captured["url"]
     assert captured["token"] == "test-key"
     assert len(sources) == 2
+
+
+NEWS_PAYLOAD = {
+    "type": "news",
+    "results": [
+        {
+            "title": "Example Co <strong>opens</strong> plant",
+            "url": "https://news.example/plant",
+            "description": "A new plant.",
+            "page_age": "2026-03-11T11:13:02",
+        },
+        {"title": "Undated", "url": "https://news.example/other", "description": ""},
+    ],
+}
+
+
+def test_news_search_uses_the_news_endpoint_and_keeps_dates(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse(json.dumps(NEWS_PAYLOAD).encode())
+
+    monkeypatch.setattr(brave.urllib.request, "urlopen", fake_urlopen)
+    sources = BraveSearchClient("test-key").search("Example Co", count=5, kind=SearchKind.NEWS)
+
+    assert captured["url"].startswith("https://api.search.brave.com/res/v1/news/search?")
+    assert [source.title for source in sources] == ["Example Co opens plant", "Undated"]
+    assert [str(source.published) for source in sources] == ["2026-03-11", "None"]
+
+
+def test_web_search_uses_the_web_endpoint(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        return FakeResponse(json.dumps(PAYLOAD).encode())
+
+    monkeypatch.setattr(brave.urllib.request, "urlopen", fake_urlopen)
+    BraveSearchClient("test-key").search("Example Co")
+
+    assert captured["url"].startswith("https://api.search.brave.com/res/v1/web/search?")
+
+
+def test_web_results_are_not_read_from_a_news_response():
+    assert parse_results(NEWS_PAYLOAD, retrieved_at=RETRIEVED_AT) == ()
 
 
 def test_search_wraps_http_errors_without_leaking_key(monkeypatch):

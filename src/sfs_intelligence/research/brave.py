@@ -1,4 +1,4 @@
-"""Brave Search adapter that returns web results as citable sources."""
+"""Brave Search adapter that returns web or news results as citable sources."""
 
 import html
 import json
@@ -12,16 +12,19 @@ from datetime import UTC, date, datetime
 from pydantic import ValidationError
 
 from sfs_intelligence.models.prospect import Source, SourceKind
-from sfs_intelligence.research.search import SearchError
+from sfs_intelligence.research.search import SearchError, SearchKind
 
-API_URL = "https://api.search.brave.com/res/v1/web/search"
+API_URLS = {
+    SearchKind.WEB: "https://api.search.brave.com/res/v1/web/search",
+    SearchKind.NEWS: "https://api.search.brave.com/res/v1/news/search",
+}
 MAX_COUNT = 20
 
 _TAG = re.compile(r"<[^>]+>")
 
 
 class BraveSearchClient:
-    """SearchProvider backed by the Brave Search web API."""
+    """SearchProvider backed by the Brave Search web and news APIs."""
 
     def __init__(self, api_key: str, timeout: float = 10.0, min_interval: float = 1.0) -> None:
         """``min_interval`` spaces requests out; Brave's free plan allows ~1 per second."""
@@ -32,8 +35,10 @@ class BraveSearchClient:
         self._min_interval = min_interval
         self._last_request: float | None = None
 
-    def search(self, query: str, count: int = 10) -> tuple[Source, ...]:
-        """Return up to ``count`` web results as public sources with ids W1, W2, ..."""
+    def search(
+        self, query: str, count: int = 10, kind: SearchKind = SearchKind.WEB
+    ) -> tuple[Source, ...]:
+        """Return up to ``count`` results as public sources with ids W1, W2, ..."""
         query = query.strip()
         if not query:
             raise ValueError("A search query is required.")
@@ -42,7 +47,7 @@ class BraveSearchClient:
 
         params = urllib.parse.urlencode({"q": query, "count": count})
         request = urllib.request.Request(
-            f"{API_URL}?{params}",
+            f"{API_URLS[kind]}?{params}",
             headers={"Accept": "application/json", "X-Subscription-Token": self._api_key},
         )
         self._wait_for_rate_limit()
@@ -56,7 +61,7 @@ class BraveSearchClient:
         except json.JSONDecodeError:
             raise SearchError("Brave Search returned a response that is not JSON.") from None
 
-        return parse_results(payload, retrieved_at=datetime.now(UTC))
+        return parse_results(payload, retrieved_at=datetime.now(UTC), kind=kind)
 
     def _wait_for_rate_limit(self) -> None:
         if self._last_request is not None:
@@ -66,9 +71,13 @@ class BraveSearchClient:
         self._last_request = time.monotonic()
 
 
-def parse_results(payload: dict, retrieved_at: datetime) -> tuple[Source, ...]:
-    """Convert a Brave web search response into sources, skipping unusable results."""
-    results = (payload.get("web") or {}).get("results") or []
+def parse_results(
+    payload: dict, retrieved_at: datetime, kind: SearchKind = SearchKind.WEB
+) -> tuple[Source, ...]:
+    """Convert a Brave search response into sources, skipping unusable results."""
+    # News responses list results at the top level; web responses nest them under "web".
+    container = payload if kind is SearchKind.NEWS else payload.get("web") or {}
+    results = container.get("results") or []
     sources: list[Source] = []
     for result in results:
         try:

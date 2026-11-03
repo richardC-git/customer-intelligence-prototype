@@ -2,7 +2,7 @@ import pytest
 
 from sfs_intelligence.models.prospect import Source, SourceKind
 from sfs_intelligence.research.categories import SearchCategory, SearchCategoryConfig
-from sfs_intelligence.research.search import SearchError
+from sfs_intelligence.research.search import SearchError, SearchKind
 from sfs_intelligence.workflows.prospect import SearchProspectProvider, run_prospect_profile
 
 CONFIG = SearchCategoryConfig(
@@ -23,9 +23,11 @@ class FakeSearch:
         self.results_by_query = results_by_query
         self.errors_by_query = errors_by_query or {}
         self.calls = []
+        self.kinds = []
 
-    def search(self, query, count=10):
+    def search(self, query, count=10, kind=SearchKind.WEB):
         self.calls.append((query, count))
+        self.kinds.append(kind)
         if query in self.errors_by_query:
             raise self.errors_by_query[query]
         return self.results_by_query.get(query, ())
@@ -119,3 +121,17 @@ def test_page_text_attached_and_missing_pages_listed():
     assert collector.requested == ["https://a.com/", "https://b.com/"]
     assert [s.page_text for s in profile.sources] == ["Full article.", None]
     assert any("W2" in item and "snippets only" in item for item in profile.limitations)
+
+
+def test_each_category_uses_its_search_kind():
+    config = SearchCategoryConfig(
+        categories=(
+            SearchCategory(id="news", label="News", query="{company}", kind=SearchKind.NEWS),
+            SearchCategory(id="site", label="Site", query="{company} official site"),
+        ),
+    )
+    search = FakeSearch({})
+
+    SearchProspectProvider(search, config).generate_profile("Example Co")
+
+    assert search.kinds == [SearchKind.NEWS, SearchKind.WEB]
