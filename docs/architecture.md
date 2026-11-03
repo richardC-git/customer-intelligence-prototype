@@ -65,6 +65,28 @@ to operators shared by major search engines (quotes, `OR`, `site:`) so queries
 stay provider-independent. Results are tagged with their category label and
 deduplicated by URL.
 
+`research/competitor_categories.toml` does the same for Competitor Monitoring.
+
+A category searches the whole web unless it sets `kind = "news"`, which asks the
+provider for recent news articles (Brave's news search). `SearchProvider.search`
+takes the kind, so a provider without a news search can fall back to web search.
+
+Both files cover the public information SFS asked for:
+
+| SFS request | Category | Notes |
+| --- | --- | --- |
+| Changes on the website | `website` | Finds the site and its current text. Detecting changes needs Key Account Monitoring (planned), which can compare the page cache's `content_hash` over time. |
+| Public news | `news` | News search. For small companies it also returns directory and blog pages. |
+| Social media posts | `social` | Restricted to public LinkedIn, Facebook, X, Instagram, and YouTube pages. These sites block page fetching, so results are snippets. |
+| New positions open or removed | `hiring` | Finds current postings; noticing removed ones also needs monitoring over time. |
+| Patents and trademarks deposited, recalled, or expired | `patents` | Web search; there is no patent database integration. |
+
+They also search leadership changes, industry media (roofing and construction
+trade publications, listed in the file for SFS to approve), pricing, and
+customers, suppliers, and partners. Each category adds one search per run, and
+analysis reads about 20 full pages, so `results_per_category` keeps the total near
+36 results.
+
 ## Research agent
 
 With a model configured, research runs in two rounds, so the model decides what
