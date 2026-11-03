@@ -1,4 +1,4 @@
-"""Save a report as Markdown or PDF.
+"""Save a report as Markdown, HTML, or PDF.
 
 Reports can hold CRM data, so they go to the git-ignored private directory by
 default. Source titles are web text an attacker controls, and Markdown viewers
@@ -11,6 +11,7 @@ from pathlib import Path
 
 from sfs_intelligence.llm.guard import clean_text
 from sfs_intelligence.reports.document import AI_NOTICE, INTERNAL_NOTICE, ReportDocument
+from sfs_intelligence.reports.html import to_html
 from sfs_intelligence.reports.pdf import write_pdf
 
 DEFAULT_REPORTS_DIR = Path("data/private/reports")
@@ -47,10 +48,11 @@ def to_markdown(document: ReportDocument) -> str:
 def export_report(
     document: ReportDocument, file_format: str, directory: Path | str = DEFAULT_REPORTS_DIR
 ) -> tuple[Path, ...]:
-    """Write the report and return the saved paths. ``file_format`` is ``md`` or ``pdf``.
+    """Write the report and return the saved paths, main file first.
 
-    The PDF is a one-page brief that may leave items out, so the full Markdown
-    report is always saved next to it.
+    ``md`` saves the full report as Markdown and as an HTML page that opens in
+    any browser. ``pdf`` saves the one-page brief, which may leave items out,
+    with both full versions next to it.
     """
     if file_format not in ("md", "pdf"):
         raise ValueError(f"Unsupported report format: {file_format}")
@@ -58,13 +60,15 @@ def export_report(
     directory.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     stem = directory / f"{_slug(document.subject)}-{stamp}"
+    html = stem.with_suffix(".html")
+    html.write_text(to_html(document), encoding="utf-8")
     markdown = stem.with_suffix(".md")
     markdown.write_text(to_markdown(document), encoding="utf-8")
     if file_format == "md":
-        return (markdown,)
+        return (html, markdown)
     pdf = stem.with_suffix(".pdf")
     write_pdf(document, pdf)
-    return (pdf, markdown)
+    return (pdf, html, markdown)
 
 
 def _markdown_list(heading: str, items: tuple[str, ...]) -> list[str]:

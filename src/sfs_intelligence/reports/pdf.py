@@ -6,7 +6,7 @@ sources the page cites. Text is never shortened just to look tidy. If the
 content does not fit, the text shrinks a little, then the lowest-ranked items are
 cut whole, and each cut is noted on the page. Only if that is not enough is the
 longest remaining text shortened, with a note saying so. The brief never runs to
-a second page, and the Markdown report saved with it keeps everything.
+a second page, and the full report saved with it keeps everything.
 
 Noto Sans is bundled so names print correctly in any Latin, Greek, or Cyrillic
 script, with Noto Sans JP as the fallback for Japanese and Chinese characters.
@@ -40,7 +40,7 @@ MAX_LIMITATIONS = 3
 # Shortening is a last resort: each step cuts the longest text by this share.
 SHORTEN_STEP = 0.85
 MIN_SHORTENED_CHARS = 120
-SHORTENED_NOTE = " (shortened; full text in the Markdown report)"
+SHORTENED_NOTE = " (shortened; see the full report)"
 SOURCE_ID_WIDTH = 7.0
 
 INK = (27, 37, 48)
@@ -261,7 +261,7 @@ def _block(pdf: FPDF, block: Block, x: float, y: float, width: float, size: floa
             _text(pdf, x, y, indent, "•", size, "", MUTED, draw)
         y += _text(pdf, x + indent, y, width - indent, item, size, "", INK, draw) + 0.8
     if block.hidden:
-        note = f"+{block.hidden} more in the Markdown report"
+        note = f"+{block.hidden} more in the full report"
         y += _text(pdf, x + indent, y, width - indent, note, size - 1, "", MUTED, draw)
     return y - top + 3.5
 

@@ -27,6 +27,7 @@ from sfs_intelligence.reports.document import (
     prospect_document,
 )
 from sfs_intelligence.reports.export import DEFAULT_REPORTS_DIR, export_report, to_markdown
+from sfs_intelligence.reports.html import to_html
 from sfs_intelligence.reports.pdf import _shorten, new_pdf, plan_page
 from sfs_intelligence.workflows.prospect import LLMProspectProvider
 
@@ -342,6 +343,61 @@ def test_empty_sections_are_left_out():
     assert "Pricing signals" not in to_markdown(document())
 
 
+# HTML
+
+
+def test_html_leads_with_the_briefing():
+    text = to_html(document(opportunities=(opportunity(1),), key_warnings=("Check this.",)))
+
+    assert text.index("Verdict: Pursue") < text.index("Top actions")
+    assert text.index("Top actions") < text.index("Key warnings") < text.index("Summary")
+    assert text.index("Summary") < text.index("Sources")
+
+
+def test_html_escapes_web_and_model_text():
+    text = to_html(
+        document(summary="<img src=x onerror=alert(1)>", sources=(web(title=HOSTILE_TITLE),))
+    )
+
+    assert "<script>" not in text and "<img" not in text
+    assert "&lt;script&gt;" in text
+
+
+def test_html_blocks_scripts_and_remote_content():
+    assert "default-src 'none'" in to_html(document())
+
+
+def test_html_links_sources_and_citations():
+    text = to_html(document())
+
+    assert '<a href="https://a.example/x" target="_blank" rel="noopener noreferrer">Acme news</a>' in text
+    assert '[<a href="#W1">W1</a>]' in text
+    assert '<li id="W1">' in text
+
+
+def test_html_does_not_link_citations_to_missing_sources():
+    text = to_html(document(summary="Acme grew [W9]."))
+
+    assert "[W9]" in text and 'href="#W9"' not in text
+
+
+def test_html_control_characters_are_removed():
+    text = to_html(document(sources=(web(title="Acme\x1b[31m news‮"),)))
+
+    assert "\x1b" not in text and "‮" not in text
+
+
+def test_html_internal_reports_are_marked_with_their_crm_text():
+    text = to_html(document(sources=(web(), internal())))
+
+    assert INTERNAL_NOTICE in text
+    assert "Potential: 300,000" in text
+
+
+def test_html_public_reports_are_not_marked():
+    assert INTERNAL_NOTICE not in to_html(document())
+
+
 # Files
 
 
@@ -349,19 +405,21 @@ def page_count(path) -> int:
     return len(re.findall(rb"/Type /Page\b(?!s)", path.read_bytes()))
 
 
-def test_exports_markdown(tmp_path):
-    (path,) = export_report(document(), "md", tmp_path)
+def test_full_report_is_saved_as_html_and_markdown(tmp_path):
+    html, markdown = export_report(document(), "md", tmp_path)
 
-    assert path.suffix == ".md"
-    assert "Verdict: Pursue" in path.read_text(encoding="utf-8")
+    assert (html.suffix, markdown.suffix) == (".html", ".md")
+    assert markdown == html.with_suffix(".md")
+    assert "Verdict: Pursue" in html.read_text(encoding="utf-8")
+    assert "Verdict: Pursue" in markdown.read_text(encoding="utf-8")
 
 
-def test_pdf_export_saves_the_full_markdown_report_with_it(tmp_path):
-    pdf, markdown = export_report(document(), "pdf", tmp_path)
+def test_pdf_export_saves_the_full_report_with_it(tmp_path):
+    pdf, html, markdown = export_report(document(), "pdf", tmp_path)
 
     assert pdf.read_bytes().startswith(b"%PDF")
+    assert html == pdf.with_suffix(".html")
     assert markdown == pdf.with_suffix(".md")
-    assert "Verdict: Pursue" in markdown.read_text(encoding="utf-8")
 
 
 def test_pdf_handles_non_latin_text_long_urls_and_many_sources(tmp_path):
@@ -377,7 +435,7 @@ def test_pdf_handles_non_latin_text_long_urls_and_many_sources(tmp_path):
     )
     developments = tuple(finding(f"Müller 日本製鉄 news {i}.", f"W{i}") for i in range(1, 11))
 
-    pdf, _ = export_report(
+    pdf, *_ = export_report(
         document(sources=sources, summary="Müller’s plant 日本", developments=developments),
         "pdf",
         tmp_path,
@@ -388,7 +446,7 @@ def test_pdf_handles_non_latin_text_long_urls_and_many_sources(tmp_path):
 
 def test_pdf_handles_an_empty_report(tmp_path):
     empty = profile(recommendation=None, recommendation_reason=None, sources=())
-    pdf, _ = export_report(prospect_document(empty, TODAY), "pdf", tmp_path)
+    pdf, *_ = export_report(prospect_document(empty, TODAY), "pdf", tmp_path)
 
     assert page_count(pdf) == 1
 
@@ -423,7 +481,7 @@ def test_a_full_profile_fits_on_one_page_and_says_what_was_cut(tmp_path):
 
     assert plan.hidden > 0
     assert all(block.items for block in (*plan.main, *plan.side))
-    pdf, _ = export_report(full, "pdf", tmp_path)
+    pdf, *_ = export_report(full, "pdf", tmp_path)
     assert page_count(pdf) == 1
 
 
@@ -474,23 +532,23 @@ def test_shortening_is_a_last_resort_that_says_so_and_keeps_citations(tmp_path):
     shortened = [item for block in (*plan.main, *plan.side) for item in block.items if "…" in item]
 
     assert shortened
-    assert all("full text in the Markdown report" in item for item in shortened)
-    pdf, _ = export_report(huge, "pdf", tmp_path)
+    assert all("see the full report" in item for item in shortened)
+    pdf, *_ = export_report(huge, "pdf", tmp_path)
     assert page_count(pdf) == 1
 
 
 def test_shortened_text_keeps_its_citation():
     text = _shorten("Acme opened a plant in Texas. " * 20 + "[W1, W2]", 200)
 
-    assert text.endswith("full text in the Markdown report) [W1, W2]")
+    assert text.endswith("see the full report) [W1, W2]")
     assert len(text) <= 200
 
 
 @pytest.mark.parametrize("name", ["../../etc/evil", "A/B Roofing", "..", "/abs/path", "日本製鉄"])
 def test_file_names_stay_inside_the_directory(tmp_path, name):
-    (path,) = export_report(document(company_name=name), "md", tmp_path)
+    paths = export_report(document(company_name=name), "md", tmp_path)
 
-    assert path.resolve().parent == tmp_path.resolve()
+    assert all(path.resolve().parent == tmp_path.resolve() for path in paths)
 
 
 def test_unknown_format_is_refused(tmp_path):
