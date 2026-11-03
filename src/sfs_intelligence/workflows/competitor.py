@@ -6,6 +6,7 @@ no free-text input at all.
 
 from typing import Protocol
 
+from sfs_intelligence import progress
 from sfs_intelligence.llm.base import LLMError
 from sfs_intelligence.llm.guard import AnalysisResult, GuardedLLM, UntrustedDocument, clean_text
 from sfs_intelligence.models.competitor import CompetitorAnalysis, CompetitorReport
@@ -87,6 +88,7 @@ class LLMCompetitorProvider:
                 update={"sources": sources, "limitations": (*report.limitations, *notes)}
             )
 
+        progress.report("analyzing")
         try:
             result = self._llm.analyze(
                 "competitor_monitoring",

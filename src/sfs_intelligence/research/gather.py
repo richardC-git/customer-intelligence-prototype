@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from sfs_intelligence import progress
 from sfs_intelligence.models.page import FetchStatus
 from sfs_intelligence.models.prospect import Source
 from sfs_intelligence.research.categories import SearchCategoryConfig
@@ -28,7 +29,8 @@ def gather_sources(
     seen_urls: set[str] = set()
     failures: list[str] = []
 
-    for category in config.categories:
+    for number, category in enumerate(config.categories, start=1):
+        progress.report(f"searching ({number}/{len(config.categories)})")
         try:
             results = search.search(
                 category.build_query(company_name),
