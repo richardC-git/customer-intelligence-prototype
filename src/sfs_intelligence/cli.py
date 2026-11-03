@@ -103,7 +103,8 @@ def offer_export(documents: Sequence[ReportDocument]) -> None:
         case _:
             return
     for document in documents:
-        print(f"Saved: {export_report(document, file_format)}")
+        for path in export_report(document, file_format):
+            print(f"Saved: {path}")
 
 
 def select_llm() -> GuardedLLM | None:

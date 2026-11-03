@@ -6,6 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 NonEmptyStr = Annotated[str, Field(min_length=1)]
 
+# Source id of the matched company's CRM record in a profile.
+CRM_RECORD_ID = "I1"
+
 
 class _FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)

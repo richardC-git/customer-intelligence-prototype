@@ -17,6 +17,7 @@ from sfs_intelligence.matching.crm import (
     find_similar_customers,
     is_exact_match,
 )
+from sfs_intelligence.models.crm import CRM_RECORD_ID
 from sfs_intelligence.models.prospect import (
     ProspectAnalysis,
     ProspectProfile,
@@ -136,7 +137,7 @@ class CrmProspectProvider:
                 }
             )
 
-        internal = [_internal_source("I1", "SFS CRM record", describe_company(company))]
+        internal = [_internal_source(CRM_RECORD_ID, "SFS CRM record", describe_company(company))]
         similar = find_similar_customers(self._store, company)
         related: tuple[RelatedCustomer, ...] = ()
         if similar:
