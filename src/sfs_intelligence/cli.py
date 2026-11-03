@@ -30,6 +30,7 @@ from sfs_intelligence.workflows.competitor import (
     run_competitor_report,
 )
 from sfs_intelligence.workflows.prospect import (
+    CRM_NOT_IMPORTED,
     CrmProspectProvider,
     LLMProspectProvider,
     PlaceholderProspectProvider,
@@ -141,6 +142,8 @@ def prospect_profiling_menu() -> None:
     while True:
         display_header("Prospect Profiling")
 
+        if not private_store_from_env().counts()["crm_accounts"]:
+            print(f"Note: {CRM_NOT_IMPORTED}\n")
         print("1. Generate Prospect Profile")
         print("2. Back to Main Menu")
         print()

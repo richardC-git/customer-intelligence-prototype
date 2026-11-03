@@ -39,6 +39,7 @@ _UNANALYZED_LIMITATIONS = (
     "SFS product fit and sales opportunities have not been assessed.",
 )
 _NO_CRM_LIMITATION = "No CRM or product data was consulted."
+CRM_NOT_IMPORTED = "CRM data has not been imported. Use Data Management > Import CRM Data."
 
 
 class ProspectProvider(Protocol):
@@ -127,6 +128,14 @@ class CrmProspectProvider:
     def generate_profile(self, company_name: str) -> ProspectProfile:
         profile = self._research.generate_profile(company_name)
         limitations = tuple(item for item in profile.limitations if item != _NO_CRM_LIMITATION)
+        if not self._store.counts()["crm_accounts"]:
+            # An empty CRM must not read as "not found", which suggests the company is new.
+            return profile.model_copy(
+                update={
+                    "limitations": (*limitations, CRM_NOT_IMPORTED),
+                    "key_warnings": (*profile.key_warnings, CRM_NOT_IMPORTED),
+                }
+            )
         company = find_company(self._store, company_name)
         if company is None:
             note = "Not found in the CRM, so similar customers could not be identified."
