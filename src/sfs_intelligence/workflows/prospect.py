@@ -2,6 +2,7 @@
 
 from typing import Protocol
 
+from sfs_intelligence import progress
 from sfs_intelligence.llm.base import LLMError
 from sfs_intelligence.llm.guard import (
     AnalysisResult,
@@ -127,6 +128,7 @@ class CrmProspectProvider:
 
     def generate_profile(self, company_name: str) -> ProspectProfile:
         profile = self._research.generate_profile(company_name)
+        progress.report("matching CRM")
         limitations = tuple(item for item in profile.limitations if item != _NO_CRM_LIMITATION)
         if not self._store.counts()["crm_accounts"]:
             # An empty CRM must not read as "not found", which suggests the company is new.
@@ -200,6 +202,7 @@ class LLMProspectProvider:
                 update={"sources": sources, "limitations": (*profile.limitations, *notes)}
             )
 
+        progress.report("analyzing")
         try:
             result = self._llm.analyze(
                 "prospect_profile",

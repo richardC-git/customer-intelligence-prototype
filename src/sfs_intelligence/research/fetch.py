@@ -10,13 +10,14 @@ import urllib.request
 import urllib.robotparser
 from collections import defaultdict
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from urllib.parse import urlsplit
 
 import trafilatura
 
+from sfs_intelligence import progress
 from sfs_intelligence.models.page import FetchedPage, FetchStatus
 from sfs_intelligence.storage.pages import PageStore, normalize_url
 
@@ -136,9 +137,12 @@ class PageCollector:
 
         fetched: list[FetchedPage] = []
         if by_host:
+            progress.report(f"reading pages (0/{len(to_fetch)})")
             with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                for host_pages in executor.map(self._fetch_sequentially, by_host.values()):
-                    fetched.extend(host_pages)
+                futures = [executor.submit(self._fetch_sequentially, host) for host in by_host.values()]
+                for future in as_completed(futures):
+                    fetched.extend(future.result())
+                    progress.report(f"reading pages ({len(fetched)}/{len(to_fetch)})")
         self._store.save(fetched)
 
         pages.update({str(page.url): page for page in fetched})

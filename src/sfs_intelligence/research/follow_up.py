@@ -15,6 +15,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sfs_intelligence import progress
 from sfs_intelligence.llm.base import LLMError
 from sfs_intelligence.llm.guard import GuardedLLM, UntrustedDocument, find_injection
 from sfs_intelligence.models.prospect import Source, SourceKind
@@ -94,6 +95,7 @@ class FollowUpResearch:
         the sources found so far.
         """
         public = [source for source in sources if source.kind is SourceKind.PUBLIC]
+        progress.report("planning follow-up searches")
         try:
             plan = llm.analyze(
                 "research_plan", company_name, [_to_document(source) for source in public], ResearchPlan
@@ -124,7 +126,8 @@ class FollowUpResearch:
         )
         found: list[Source] = []
         failed = 0
-        for item in searches:
+        for number, item in enumerate(searches, start=1):
+            progress.report(f"follow-up searches ({number}/{len(searches)})")
             category = SearchCategory(
                 id=item.focus.value,
                 label=_FOCUS_LABELS[item.focus],
