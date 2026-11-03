@@ -1,17 +1,20 @@
 import os
+import shutil
+import sys
 import textwrap
 from collections.abc import Callable, Sequence
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
+from sfs_intelligence import progress
 from sfs_intelligence.llm.base import PROVIDER_ENV_VAR, LLMError
 from sfs_intelligence.ingestion.competitors import import_competitors
 from sfs_intelligence.ingestion.crm import import_crm
 from sfs_intelligence.ingestion.tables import ImportFileError
 from sfs_intelligence.llm.guard import GuardedLLM, clean_text, llm_from_env
-from sfs_intelligence.models.competitor import CompetitorReport
 from sfs_intelligence.models.crm import Competitor
-from sfs_intelligence.models.prospect import Finding, Source
+from sfs_intelligence.models.prospect import SourceKind
 from sfs_intelligence.reports.document import (
     ReportDocument,
     competitor_document,
@@ -52,36 +55,50 @@ def pause() -> None:
     input("\nPress Enter to continue...")
 
 
-def display_sources(sources: tuple[Source, ...]) -> None:
-    print("\nSources:")
-    category = None
-    for source in sources:
-        if source.category and source.category != category:
-            category = source.category
-            print(f"\n  {category}")
-        # Web text can contain escape codes that would control the terminal.
-        date = f" ({source.published})" if source.published else ""
-        print(f"[{source.id}] {clean_text(source.title)}{date} {source.url or '(internal)'}")
-        if source.snippet:
-            print(f"     {clean_text(source.snippet)}")
-        if source.url is None and source.page_text:
-            for line in clean_text(source.page_text).splitlines():
-                print(f"     {line}")
-        elif source.page_text:
-            print(f"     (Page text: {len(source.page_text):,} characters)")
+class ProgressLine:
+    """Show one company's current step on a single line, rewritten as it changes."""
+
+    def __init__(self, label: str) -> None:
+        self._label = label
+        self._width = 0
+        # Rewriting a line only works on a terminal; elsewhere just the outcome is printed.
+        self._live = sys.stdout.isatty()
+
+    def update(self, step: str) -> None:
+        if self._live:
+            self._write(f"{self._label}  {step}...")
+
+    def finish(self, outcome: str) -> None:
+        line = f"{self._label}  {outcome}"
+        if self._live:
+            self._write(line)
+            print()
+        else:
+            print(line)
+
+    def _write(self, text: str) -> None:
+        # A line wider than the terminal wraps, and "\r" would then only rewrite its end.
+        text = text[: shutil.get_terminal_size().columns - 1]
+        print("\r" + text.ljust(self._width), end="", flush=True)
+        self._width = len(text)
 
 
-def display_findings(title: str, findings: tuple[Finding, ...]) -> None:
-    if findings:
-        print(f"\n{title}:")
-        for finding in findings:
-            print(f"- {finding.statement} [{', '.join(finding.source_ids)}]")
+def wrapped(text: str, indent: str = "") -> None:
+    print(textwrap.fill(text, 78, initial_indent=indent, subsequent_indent=" " * len(indent)))
+
+
+def outcome(document: ReportDocument) -> str:
+    return document.verdict or "Analyzed"
+
+
+def source_counts(document: ReportDocument) -> str:
+    web = sum(source.kind is SourceKind.PUBLIC for source in document.sources)
+    internal = " and SFS internal data" if document.is_internal else ""
+    return f"Based on {web} web source{'' if web == 1 else 's'}{internal}."
 
 
 def display_briefing(document: ReportDocument) -> None:
-    def wrapped(text: str, indent: str = "") -> None:
-        print(textwrap.fill(text, 78, initial_indent=indent, subsequent_indent=" " * len(indent)))
-
+    print(f"{document.subject}\n")
     print(document.headline.upper())
     wrapped(document.reason)
     for heading, items in (("Top actions", document.top_actions), ("Key warnings", document.warnings)):
@@ -89,23 +106,85 @@ def display_briefing(document: ReportDocument) -> None:
             print(f"\n{heading}:")
             for item in items:
                 wrapped(item, "- ")
-    print("\n" + "-" * 50 + "\nFull report\n" + "-" * 50)
+    print(f"\n{source_counts(document)}")
 
 
-def offer_export(documents: Sequence[ReportDocument]) -> None:
-    if not documents:
-        return
-    print("\nExport: 1. Markdown   2. PDF   3. No")
-    match input("Selection: ").strip():
-        case "1":
-            file_format = "md"
-        case "2":
-            file_format = "pdf"
-        case _:
-            return
+def display_full_report(document: ReportDocument) -> None:
+    display_header(document.title)
+    print(f"{document.subject}")
+    print(f"Provider: {document.provider}\n")
+    wrapped(f"Summary: {document.summary}")
+    if document.crm_record:
+        print("\nCRM record:")
+        for line in document.crm_record:
+            print(f"  {line}")
+    for section in document.sections:
+        if section.items:
+            print(f"\n{section.heading}:")
+            for item in section.items:
+                wrapped(item, "- ")
+    print("\nSources:")
+    for source in document.sources:
+        # Web text can contain escape codes that would control the terminal.
+        date = f" ({source.published})" if source.published else ""
+        where = urlsplit(str(source.url)).netloc.removeprefix("www.") if source.url else "SFS internal"
+        print(f"[{source.id}] {clean_text(source.title)}{date}, {where}")
+    print("\nLimitations:")
+    for limitation in document.limitations:
+        wrapped(limitation, "- ")
+
+
+def save(documents: Sequence[ReportDocument], file_format: str) -> None:
     for document in documents:
         for path in export_report(document, file_format):
             print(f"Saved: {path}")
+
+
+def review_report(document: ReportDocument) -> None:
+    """Show the briefing, then the full report or a saved copy on request."""
+    display_briefing(document)
+    while True:
+        print("\n1. Full report   2. Save Markdown   3. Save PDF   4. Done")
+        match input("Selection: ").strip():
+            case "1":
+                display_full_report(document)
+            case "2":
+                save([document], "md")
+            case "3":
+                save([document], "pdf")
+            case "4" | "":
+                return
+            case _:
+                print("Invalid selection.")
+
+
+def review_reports(documents: Sequence[ReportDocument], failures: dict[str, str]) -> None:
+    """Summarize several reports in a table; open or save them on request."""
+    rows = [
+        (str(number), document.subject, outcome(document), str(len(document.sources)))
+        for number, document in enumerate(documents, start=1)
+    ]
+    rows += [("-", name, f"Failed: {error}", "") for name, error in failures.items()]
+    header = ("#", "Company", "Result", "Sources")
+    widths = [max(len(row[column]) for row in (header, *rows)) for column in range(len(header))]
+    print()
+    for row in (header, *rows):
+        print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip())
+    if not documents:
+        return
+    while True:
+        print("\nEnter a report number to open it, M to save all as Markdown,")
+        selection = input("P to save all as PDF, or press Enter when done: ").strip().lower()
+        if not selection:
+            return
+        if selection == "m":
+            save(documents, "md")
+        elif selection == "p":
+            save(documents, "pdf")
+        elif selection.isdecimal() and 1 <= int(selection) <= len(documents):
+            display_full_report(documents[int(selection) - 1])
+        else:
+            print("Invalid selection.")
 
 
 def select_llm() -> GuardedLLM | None:
@@ -155,42 +234,20 @@ def prospect_profiling_menu() -> None:
                 company_name = input("\nEnter company name: ").strip()
 
                 provider = select_prospect_provider()
-                print("\nResearching. This can take a minute...")
-
+                print()
+                line = ProgressLine(company_name)
                 try:
-                    profile = run_prospect_profile(company_name, provider)
+                    with progress.reporting_to(line.update):
+                        profile = run_prospect_profile(company_name, provider)
                 except (ValueError, SearchError) as error:
-                    print(f"\n{error}")
+                    line.finish(f"failed: {error}")
                     pause()
                     continue
 
-                display_header("Prospect Profile")
                 document = prospect_document(profile)
-                print(f"Company: {profile.company_name}\n")
-                display_briefing(document)
-                print(f"Provider: {profile.provider}")
-                print(f"\nSummary: {profile.summary}")
-                display_findings("Recent developments", profile.developments)
-                display_findings("Pricing signals", profile.pricing_signals)
-                display_findings("Customers, suppliers & partners", profile.relationships)
-                print("\nPotential opportunities:")
-                for opportunity in profile.opportunities:
-                    print(f"- {opportunity.description} [{', '.join(opportunity.source_ids)}]")
-                    print(f"  Why: {opportunity.rationale}")
-                if not profile.opportunities:
-                    print("- None assessed.")
-                if profile.related_customers:
-                    print("\nMost similar existing customers:")
-                    for customer in profile.related_customers:
-                        print(f"- {customer.name}: {customer.similarity_reason}")
-                if profile.sources:
-                    display_sources(profile.sources)
-                print("\nLimitations:")
-                for limitation in profile.limitations:
-                    print(f"- {limitation}")
-
-                offer_export([document])
-                pause()
+                line.finish(f"done: {outcome(document)}")
+                display_header("Prospect Profile")
+                review_report(document)
 
             case "2":
                 return
@@ -266,25 +323,27 @@ def select_competitors() -> list[Competitor]:
     return []
 
 
-def display_competitor_report(report: CompetitorReport) -> ReportDocument:
-    display_header("Competitor Report")
-    document = competitor_document(report)
-    print(f"Competitor: {report.competitor}")
-    if report.business_unit:
-        print(f"Business unit: {report.business_unit}")
-    print()
-    display_briefing(document)
-    print(f"Provider: {report.provider}")
-    print(f"\nSummary: {report.summary}")
-    display_findings("Recent developments", report.developments)
-    display_findings("Pricing signals", report.pricing_signals)
-    display_findings("Customers, suppliers & partners", report.relationships)
-    display_findings("What this means for SFS", report.implications)
-    display_sources(report.sources)
-    print("\nLimitations:")
-    for limitation in report.limitations:
-        print(f"- {limitation}")
-    return document
+def run_competitors(
+    competitors: Sequence[Competitor], provider: CompetitorProvider
+) -> tuple[list[ReportDocument], dict[str, str]]:
+    """Research each competitor on its own progress line; one failure doesn't stop the rest."""
+    documents: list[ReportDocument] = []
+    failures: dict[str, str] = {}
+    name_width = max(len(competitor.name) for competitor in competitors)
+    for number, competitor in enumerate(competitors, start=1):
+        counter = f"[{number}/{len(competitors)}] " if len(competitors) > 1 else ""
+        line = ProgressLine(f"{counter}{competitor.name.ljust(name_width)}")
+        try:
+            with progress.reporting_to(line.update):
+                report = run_competitor_report(competitor, provider)
+        except SearchError as error:
+            failures[competitor.name] = str(error)
+            line.finish(f"failed: {error}")
+            continue
+        document = competitor_document(report)
+        documents.append(document)
+        line.finish(f"done: {outcome(document)}")
+    return documents, failures
 
 
 def competitor_monitoring_menu() -> None:
@@ -302,16 +361,13 @@ def competitor_monitoring_menu() -> None:
                 competitors = select_competitors()
                 provider = select_competitor_provider() if competitors else None
                 if provider is not None:
-                    print("\nSearching the web and reading result pages. This can take a minute...")
-                    documents = []
-                    for competitor in competitors:
-                        try:
-                            report = run_competitor_report(competitor, provider)
-                        except SearchError as error:
-                            print(f"\n{competitor.name}: {error}")
-                            continue
-                        documents.append(display_competitor_report(report))
-                    offer_export(documents)
+                    print()
+                    documents, failures = run_competitors(competitors, provider)
+                    if len(competitors) == 1 and documents:
+                        display_header("Competitor Report")
+                        review_report(documents[0])
+                        continue
+                    review_reports(documents, failures)
 
                 pause()
 
