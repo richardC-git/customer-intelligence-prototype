@@ -198,7 +198,10 @@ Markdown report is always saved next to it:
 The page is measured before it is drawn. If it does not fit, the text shrinks from
 9 pt to 8 pt, then the last item of the longest section is cut until it fits, and
 each section notes "+N more in the Markdown report". Summaries, warnings, and CRM
-facts are never cut, and long items keep their citations.
+facts are never cut. Text is never shortened just to fit a fixed length: only if
+cutting items is not enough is the longest text shortened, marked "shortened; full
+text in the Markdown report", and it keeps its citations. Source titles in the
+footer are the one exception: each is kept to one line.
 
 Noto Sans (bundled in `reports/fonts/`, SIL Open Font License) covers Latin, Greek,
 and Cyrillic, with Noto Sans JP as the fallback for Japanese and Chinese characters.
