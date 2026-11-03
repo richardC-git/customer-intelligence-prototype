@@ -1,16 +1,60 @@
 # Search categories for prospect profiling.
 #
-# Each category runs one web search. {company} is replaced with the company
-# name in double quotes (exact-phrase match). Use operators that major search
-# engines share (quotes, OR, site:) so queries work with any search provider.
+# Each category runs one search. {company} is replaced with the company name in
+# double quotes (exact-phrase match). Use operators that major search engines
+# share (quotes, OR, site:) so queries work with any search provider.
 # To limit a category to approved sites, add e.g. (site:example.com OR site:example.org).
+# kind = "news" searches recent news articles instead of the whole web; providers
+# without a news search fall back to web search.
+#
+# The first five categories are the public information SFS listed: website
+# changes, public news, social media posts, open or removed positions, and
+# patents or trademarks. Detecting changes and removals over time needs Key
+# Account Monitoring; these searches find what is public now.
+#
+# Every category adds one search per run, and the AI reads about 20 full pages,
+# so keep the total number of results near 36.
 
-results_per_category = 5
+results_per_category = 4
+
+[[categories]]
+id = "website"
+label = "Company website"
+query = "{company} official site"
 
 [[categories]]
 id = "news"
 label = "News & press releases"
-query = "{company} press release OR announces OR news"
+kind = "news"
+query = "{company}"
+
+[[categories]]
+id = "social"
+label = "Social media"
+# Public pages only; these sites block page fetching, so results are snippets.
+query = "{company} (site:linkedin.com OR site:facebook.com OR site:x.com OR site:instagram.com OR site:youtube.com)"
+
+[[categories]]
+id = "hiring"
+label = "Hiring & workforce"
+query = "{company} hiring OR careers OR jobs OR \"job opening\" OR expansion"
+
+[[categories]]
+id = "patents"
+label = "Patents & trademarks"
+query = "{company} patent OR trademark OR \"patent application\" OR \"trademark registration\""
+
+[[categories]]
+id = "leadership"
+label = "Leadership changes"
+query = "{company} appoints OR appointed OR CEO OR president OR \"vice president\""
+
+[[categories]]
+id = "industry_media"
+label = "Industry media"
+# Roofing, cladding, and construction trade publications. Edit this list to match
+# the publications SFS approves.
+query = "{company} (site:metalconstructionnews.com OR site:metalarchitecture.com OR site:roofingcontractor.com OR site:roofingmagazine.com OR site:professionalroofing.net OR site:constructiondive.com OR site:enr.com OR site:bdcnetwork.com)"
 
 [[categories]]
 id = "pricing"
@@ -21,23 +65,3 @@ query = "{company} price increase OR pricing OR \"price list\""
 id = "relationships"
 label = "Customers, suppliers & partners"
 query = "{company} partner OR partnership OR supplier OR distributor OR customer"
-
-[[categories]]
-id = "leadership"
-label = "Leadership changes"
-query = "{company} appoints OR appointed OR CEO OR president OR \"vice president\""
-
-[[categories]]
-id = "hiring"
-label = "Hiring & workforce"
-query = "{company} hiring OR careers OR jobs OR expansion"
-
-[[categories]]
-id = "patents"
-label = "Patents & trademarks"
-query = "{company} patent OR trademark"
-
-[[categories]]
-id = "website"
-label = "Company website"
-query = "{company} official site"
