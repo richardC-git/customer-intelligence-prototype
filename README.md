@@ -78,6 +78,14 @@ was stored. Imported data stays in `data/private/`, which git ignores.
   `data/sample/competitors_sample.csv`). The field sales PDF shows most names as
   logos, so its list is kept as a table rather than read from the PDF.
 
+Product data has no importer yet. SFS Construction and Tegra Medical publish
+their product lines on their websites rather than as a file, so
+`data/sample/sfs_construction_product_lines.csv` and
+`data/sample/tegra_medical_product_lines.csv` collect them from those public
+pages, with a source link per row. `Bus Unit` maps SFS categories to the CRM
+sales office codes (RC, FR, RS, TW); that mapping is ours and not yet confirmed
+by SFS.
+
 ## Launching
 
 With the virtual environment active:
