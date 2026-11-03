@@ -107,11 +107,15 @@ package imports itself by name.
 
 While research runs, one line per company shows its current step. Each report then
 opens with a briefing: a verdict, top actions, and key warnings. From there, open the
-full report with its sources, or save it as Markdown or PDF to `data/private/reports/`.
-When several competitors are researched at once, a table lists each result, including
-any that failed, and each report can be opened or all of them saved. That folder is
-ignored by git because reports can contain CRM data. The PDF is a one-page brief;
-the full report is always saved next to it as Markdown.
+full report with its sources, or save it to `data/private/reports/`. That folder is
+ignored by git because reports can contain CRM data. When several competitors are
+researched at once, a table lists each result, including any that failed, and each
+report can be opened or all of them saved.
+
+Saving the full report writes an HTML page and a Markdown copy. The HTML page opens
+in any web browser with a double-click, with clickable sources, so it is the one to
+share with SFS users. Saving the PDF brief, which fits on one page and may leave
+items out, also saves both full versions next to it.
 
 ## Running tests
 

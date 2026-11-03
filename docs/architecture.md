@@ -212,8 +212,13 @@ because reports can hold CRM data. Reports using internal data are marked as
 internal. Web text is escaped in Markdown so a page title cannot become a remote
 image or link.
 
+Every save also writes the full report as one HTML page (`reports/html.py`) for
+readers who don't use Markdown. All model and web text in it is HTML-escaped, and
+its content security policy (`default-src 'none'`) blocks scripts and remote
+content. Citations link to their entries in the source list.
+
 The PDF (`reports/pdf.py`) is a one-page brief on US Letter paper, and the full
-Markdown report is always saved next to it:
+report is always saved next to it as HTML and Markdown:
 
 - Header: the verdict as a coloured badge, with its cited reason.
 - Left column: summary, opportunities (or implications for competitors), and
@@ -224,10 +229,10 @@ Markdown report is always saved next to it:
 
 The page is measured before it is drawn. If it does not fit, the text shrinks from
 9 pt to 8 pt, then the last item of the longest section is cut until it fits, and
-each section notes "+N more in the Markdown report". Summaries, warnings, and CRM
+each section notes "+N more in the full report". Summaries, warnings, and CRM
 facts are never cut. Text is never shortened just to fit a fixed length: only if
-cutting items is not enough is the longest text shortened, marked "shortened; full
-text in the Markdown report", and it keeps its citations. Source titles in the
+cutting items is not enough is the longest text shortened, marked "shortened; see
+the full report", and it keeps its citations. Source titles in the
 footer are the one exception: each is kept to one line.
 
 Noto Sans (bundled in `reports/fonts/`, SIL Open Font License) covers Latin, Greek,
