@@ -49,6 +49,7 @@ credentials.*
 # ============================================================
 
 data/private/
+docs/private/
 data/sfs/
 data/raw/
 data/exports/

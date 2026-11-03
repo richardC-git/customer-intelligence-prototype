@@ -5,6 +5,8 @@ description = "Prototype customer intelligence tool for SFS Group: prospect prof
 requires-python = ">=3.12"
 dependencies = [
     "duckdb>=1.2",
+    "fpdf2>=2.8",
+    "openpyxl>=3.1",
     "pydantic>=2.12,<3",
     "python-dotenv>=1.0",
     "trafilatura>=2.0",
@@ -14,12 +16,15 @@ dependencies = [
 dev = [
     "pytest>=8",
 ]
+copilot = [
+    "github-copilot-sdk>=1.0",
+]
 
 [project.scripts]
 sfs-intelligence = "sfs_intelligence.cli:main"
 
 [tool.setuptools.package-data]
-sfs_intelligence = ["research/*.toml"]
+sfs_intelligence = ["research/*.toml", "llm/prompts/*.md"]
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -28,3 +33,7 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = [
+    "live: calls a real model service; needs LLM_* settings and may cost money (run with pytest -m live)",
+]

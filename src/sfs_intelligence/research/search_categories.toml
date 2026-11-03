@@ -13,6 +13,16 @@ label = "News & press releases"
 query = "{company} press release OR announces OR news"
 
 [[categories]]
+id = "pricing"
+label = "Pricing"
+query = "{company} price increase OR pricing OR \"price list\""
+
+[[categories]]
+id = "relationships"
+label = "Customers, suppliers & partners"
+query = "{company} partner OR partnership OR supplier OR distributor OR customer"
+
+[[categories]]
 id = "leadership"
 label = "Leadership changes"
 query = "{company} appoints OR appointed OR CEO OR president OR \"vice president\""

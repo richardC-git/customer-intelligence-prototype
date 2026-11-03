@@ -35,6 +35,22 @@ class FakeResponse(io.BytesIO):
         self.close()
 
 
+def test_publication_dates_are_kept_and_missing_ones_stay_unknown():
+    payload = {
+        "web": {
+            "results": [
+                {"title": "Old", "url": "https://a.example/", "page_age": "2021-11-15T19:50:11"},
+                {"title": "Undated", "url": "https://b.example/", "page_age": None},
+                {"title": "Odd", "url": "https://c.example/", "page_age": "two days ago"},
+            ]
+        }
+    }
+
+    sources = parse_results(payload, retrieved_at=RETRIEVED_AT)
+
+    assert [str(source.published) for source in sources] == ["2021-11-15", "None", "None"]
+
+
 def test_parse_results_builds_public_sources():
     sources = parse_results(PAYLOAD, retrieved_at=RETRIEVED_AT)
 
