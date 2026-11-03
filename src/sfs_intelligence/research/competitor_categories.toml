@@ -1,4 +1,8 @@
 # Search categories for competitor monitoring. Same format as search_categories.toml.
+#
+# Covers the public information SFS listed (website, news, social media, hiring,
+# patents and trademarks) plus pricing, products, and corporate changes. With 10
+# categories, monitoring all competitors runs about 10 searches per competitor.
 
 results_per_category = 4
 
@@ -15,7 +19,8 @@ query = "{company} partner OR partnership OR supplier OR distributor OR customer
 [[categories]]
 id = "news"
 label = "News & announcements"
-query = "{company} announces OR press release OR news"
+kind = "news"
+query = "{company}"
 
 [[categories]]
 id = "products"
@@ -26,3 +31,31 @@ query = "{company} new product OR launch OR fastener"
 id = "corporate"
 label = "Acquisitions & leadership"
 query = "{company} acquisition OR acquires OR merger OR appoints"
+
+[[categories]]
+id = "website"
+label = "Company website"
+query = "{company} official site"
+
+[[categories]]
+id = "social"
+label = "Social media"
+# Public pages only; these sites block page fetching, so results are snippets.
+query = "{company} (site:linkedin.com OR site:facebook.com OR site:x.com OR site:instagram.com OR site:youtube.com)"
+
+[[categories]]
+id = "hiring"
+label = "Hiring & workforce"
+query = "{company} hiring OR careers OR jobs OR \"job opening\" OR expansion"
+
+[[categories]]
+id = "patents"
+label = "Patents & trademarks"
+query = "{company} patent OR trademark OR \"patent application\" OR \"trademark registration\""
+
+[[categories]]
+id = "industry_media"
+label = "Industry media"
+# Roofing, cladding, and construction trade publications. Edit this list to match
+# the publications SFS approves.
+query = "{company} (site:metalconstructionnews.com OR site:metalarchitecture.com OR site:roofingcontractor.com OR site:roofingmagazine.com OR site:professionalroofing.net OR site:constructiondive.com OR site:enr.com OR site:bdcnetwork.com)"

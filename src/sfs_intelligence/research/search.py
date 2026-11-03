@@ -5,6 +5,7 @@ The search service is chosen by ``SEARCH_PROVIDER`` and authenticated with
 """
 
 import os
+from enum import StrEnum
 from typing import Protocol
 
 from sfs_intelligence.models.prospect import Source
@@ -17,10 +18,18 @@ class SearchError(RuntimeError):
     """Raised when a search cannot be performed or its response is unusable."""
 
 
+class SearchKind(StrEnum):
+    WEB = "web"
+    # Recent articles from news sites. Providers without a news search use web search.
+    NEWS = "news"
+
+
 class SearchProvider(Protocol):
     """Search adapters implement this contract and return results as public sources."""
 
-    def search(self, query: str, count: int = 10) -> tuple[Source, ...]:
+    def search(
+        self, query: str, count: int = 10, kind: SearchKind = SearchKind.WEB
+    ) -> tuple[Source, ...]:
         ...
 
 

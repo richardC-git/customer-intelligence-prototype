@@ -6,6 +6,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from sfs_intelligence.research.search import SearchKind
+
 DEFAULT_CATEGORIES_PATH = Path(__file__).with_name("search_categories.toml")
 COMPETITOR_CATEGORIES_PATH = Path(__file__).with_name("competitor_categories.toml")
 COMPANY_PLACEHOLDER = "{company}"
@@ -21,6 +23,7 @@ class SearchCategory(_FrozenModel):
     id: NonEmptyStr
     label: NonEmptyStr
     query: NonEmptyStr
+    kind: SearchKind = SearchKind.WEB
 
     @field_validator("query")
     @classmethod

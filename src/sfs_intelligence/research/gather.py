@@ -31,7 +31,9 @@ def gather_sources(
     for category in config.categories:
         try:
             results = search.search(
-                category.build_query(company_name), count=config.results_per_category
+                category.build_query(company_name),
+                count=config.results_per_category,
+                kind=category.kind,
             )
         except SearchError as error:
             failures.append(f"{category.label}: {error}")

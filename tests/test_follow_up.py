@@ -16,7 +16,7 @@ from sfs_intelligence.research.follow_up import (
     ResearchPlan,
     is_safe_terms,
 )
-from sfs_intelligence.research.search import SearchError
+from sfs_intelligence.research.search import SearchError, SearchKind
 from sfs_intelligence.workflows.competitor import LLMCompetitorProvider
 from sfs_intelligence.workflows.prospect import LLMProspectProvider
 
@@ -47,7 +47,7 @@ class FakeSearch:
         self.queries = []
         self.fail = fail
 
-    def search(self, query, count=10):
+    def search(self, query, count=10, kind=SearchKind.WEB):
         self.queries.append((query, count))
         if self.fail:
             raise SearchError("down")
@@ -215,7 +215,7 @@ def test_results_get_new_ids_and_sit_between_internal_and_web_sources():
 
 def test_duplicate_urls_are_dropped():
     class Same(FakeSearch):
-        def search(self, query, count=10):
+        def search(self, query, count=10, kind=SearchKind.WEB):
             return (web("W1", "https://a.example/"),)
 
     sources, _ = extend(FakeModel(plan(("pricing", "price list"))), Same())
